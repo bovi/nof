@@ -8,8 +8,8 @@ CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || 1880
 @tasks = []
 @schedule_threads = {}
 
-def acquire_tasks
-  puts "[#{Time.now}] Acquire tasks"
+def update_tasks
+  puts "[#{Time.now}] update_tasks()"
   uri = URI("http://#{CONTROLLER_HOST}:#{CONTROLLER_PORT}/tasks")
   begin
     res = Net::HTTP.get_response(uri)
@@ -27,6 +27,7 @@ def acquire_tasks
 end
 
 def report_result(uuid, result)
+  puts "[#{Time.now}] report_result(#{uuid})"
   uri = URI("http://#{CONTROLLER_HOST}:#{CONTROLLER_PORT}/report")
   request = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/json')
   request.body = { uuid: uuid, result: result, timestamp: Time.now.to_i }.to_json
@@ -62,7 +63,6 @@ def update_task_schedules(new_tasks)
       @schedule_threads[uuid] = Thread.new do
         loop do
           result = `#{command}`
-          puts "[#{Time.now}] Executed(#{uuid}): #{command}" #, Result: #{result}"
           report_result(uuid, result)
           sleep schedule
         end
@@ -74,7 +74,7 @@ end
 def start_executor
   Thread.new do
     loop do
-      acquire_tasks
+      update_tasks
       sleep 60 # Fetch tasks every 60 seconds
     end
   end

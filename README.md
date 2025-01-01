@@ -6,8 +6,8 @@ graph TD;
     Dashboard["Dashboard"];
     Executor["Executor"];
 
-    Controller -->|update_data & acquire_config| Dashboard;
-    Executor -->|acquire_tasks & report_results| Controller;
+    Controller -->|update_data & update_config| Dashboard;
+    Executor -->|update_tasks & report_results| Controller;
 ```
 
 ## Connectivity Requirements
