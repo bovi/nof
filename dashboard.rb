@@ -13,11 +13,75 @@ CONFIG_DIR = DASHBOARD_CONFIG_DIR
 $dashboard_updates = []
 $mutex = Mutex.new
 
+class Activities
+  def initialize
+    @activities = []
+  end
+
+  def delete_task(uuid)
+    @activities << { timestamp: Time.now.to_i, type: 'delete_task', uuid: uuid }
+  end
+
+  def all
+    @activities
+  end
+end
+
 class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
+  @state = :init
+  @activities = Activities.new
+  @mutex = Mutex.new
+  class << self
+    attr_accessor :state, :mutex, :activities
+  end
+
+  def self.dashboard_state
+    @mutex.synchronize { @state }
+  end
+
+  def self.dashboard_state=(new_state)
+    @mutex.synchronize { @state = new_state }
+  end
+
+  def self.dashboard_activities
+    @mutex.synchronize { @activities.all }
+  end
+
+  def self.dashboard_activities_available?
+    @mutex.synchronize { @activities.all.any? }
+  end
+
+  def self.dashboard_activities_clean!
+    @mutex.synchronize { @activities.all.clear }
+  end
+
+  def self.delete_task(uuid)
+    @mutex.synchronize { @activities.delete_task(uuid) }
+  end
+
+  def initialize(server)
+    super(server)
+  end
+
   def do_GET(request, response)
     updates = $mutex.synchronize { $dashboard_updates }
     updates = updates.map { |update| "<p>[#{Time.at(update['timestamp'])}] #{update['message']}</p>" }.join
-    tasks = Tasks.all.map { |task| "<tr><td>#{task['uuid']}</td><td>#{task['command']}</td><td>#{task['schedule']}</td><td>#{task['type']}</td></tr>" }.join
+    tasks = Tasks.all.map do |task|
+      <<-HTML
+        <tr>
+          <td>#{task['uuid']}</td>
+          <td>#{task['command']}</td>
+          <td>#{task['schedule']}</td>
+          <td>#{task['type']}</td>
+          <td>
+            <form action="/config/tasks/delete" method="post">
+              <input type="hidden" name="uuid" value="#{task['uuid']}">
+              <input type="submit" value="Delete">
+            </form>
+          </td>
+        </tr>
+      HTML
+    end.join
     response.content_type = 'text/html'
     response.body = <<-HTML
       <html>
@@ -43,6 +107,8 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         </head>
         <body>
           <h1>Dashboard</h1>
+          <p>#{Time.now}</p>
+          <p>State: #{self.class.dashboard_state}</p>
           <h2>Tasks</h2>
           <table>
             <tr>
@@ -50,9 +116,12 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
               <th>Command</th>
               <th>Schedule</th>
               <th>Type</th>
+              <th>Actions</th>
             </tr>
           #{tasks}
           </table>
+          <h2>Activities</h2>
+          <p>#{self.class.dashboard_activities}</p>
           <h2>Updates</h2>
           <p>#{updates}</p>
         </body>
@@ -73,22 +142,41 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
       data = JSON.parse(request.body)
       type = data['type'] || ''
       if type == 'init'
+        if self.class.dashboard_state == :init
+          puts "[#{Time.now}] re-initializing dashboard"
+        end
+
         Tasks.clean!
         tasks = JSON.parse(request.body)['tasks'] || []
         tasks.each do |task|
           Tasks.add(task['command'], task['schedule'], task['type'], with_uuid: task['uuid'])
         end
+        self.class.dashboard_state = :synced
         response.status = 200
         response['Content-Type'] = 'application/json'
         response.body = { message: 'ok' }.to_json
       elsif type == 'sync'
         response.status = 200
         response['Content-Type'] = 'application/json'
-        response.body = { activities: Activities.all }.to_json
-        Activities.clean!
+        if self.class.dashboard_activities_available?
+          response.body = { message: 'sync', activities: self.class.dashboard_activities }.to_json
+          self.class.dashboard_activities_clean!
+        else
+          response.body = { message: 'nothing to sync' }.to_json
+        end
       else
         response.status = 404
       end
+    elsif request.path == '/config/tasks/delete'
+      data = URI.decode_www_form(request.body).to_h
+      uuid = data['uuid']
+
+      self.class.delete_task(uuid)
+      Tasks.remove(uuid)
+
+      # and then redirect to /config/tasks
+      response.status = 302
+      response['Location'] = '/'
     else
       response.status = 404
     end

@@ -55,15 +55,41 @@ def update_data
   end
 end
 
-def update_config
+def update_config(state)
   uri = URI("http://#{DASHBOARD_HOST}:#{DASHBOARD_PORT}/config/update")
   http = Net::HTTP.new(uri.host, uri.port)
   request = Net::HTTP::Post.new(uri.path, { 'Content-Type' => 'application/json' })
-  request.body = { type: 'init', tasks: Tasks.all }.to_json
   begin
+    if state == :init
+      request.body = { type: 'init', tasks: Tasks.all }.to_json
+    elsif state == :sync
+      request.body = { type: 'sync' }.to_json
+    else
+      raise ArgumentError, "Invalid state: #{state}"
+    end
+
     response = http.request(request)
 
-    unless response.is_a?(Net::HTTPSuccess)
+    if response.is_a?(Net::HTTPSuccess)
+      ret = JSON.parse(response.body)
+      if ret['message'] == 'ok'
+        puts "[#{Time.now}] Updated dashboard config"
+      elsif ret['message'] == 'already init'
+        puts "[#{Time.now}] Dashboard already initialized"
+      elsif ret['message'] == 'sync'
+        puts "[#{Time.now}] Synced dashboard activities"
+        ret['activities'].each do |activity|
+          if activity['type'] == 'delete_task'
+            Tasks.remove(activity['uuid'])
+            puts "[#{Time.now}] Deleting task: #{activity['uuid']}"
+          end
+        end
+      elsif ret['message'] == 'nothing to sync'
+        puts "[#{Time.now}] Nothing to sync"
+      else
+        puts "[#{Time.now}] Failed to update dashboard config: #{ret['message']}"
+      end
+    else
       puts "[#{Time.now}] Failed to update dashboard config: #{response.code} #{response.message}"
     end
   rescue Errno::ECONNREFUSED
@@ -129,9 +155,10 @@ def start_controller
     end
   end
   Thread.new do
+    update_config(:init)
     loop do
-      update_config
-      sleep 60
+      sleep 10
+      update_config(:sync)
     end
   end
 
