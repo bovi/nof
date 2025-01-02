@@ -19,7 +19,11 @@ class Activities
   end
 
   def delete_task(uuid)
-    @activities << { timestamp: Time.now.to_i, type: 'delete_task', uuid: uuid }
+    @activities << { timestamp: Time.now.to_i, type: 'delete_task', opt: { uuid: uuid } }
+  end
+
+  def add_task(uuid, command, schedule, type)
+    @activities << { timestamp: Time.now.to_i, type: 'add_task', opt: { uuid: uuid, command: command, schedule: schedule, type: type } }
   end
 
   def all
@@ -57,6 +61,10 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
 
   def self.delete_task(uuid)
     @mutex.synchronize { @activities.delete_task(uuid) }
+  end
+
+  def self.add_task(uuid, command, schedule, type)
+    @mutex.synchronize { @activities.add_task(uuid, command, schedule, type) }
   end
 
   def initialize(server)
@@ -110,6 +118,16 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
           <p>#{Time.now}</p>
           <p>State: #{self.class.dashboard_state}</p>
           <h2>Tasks</h2>
+          <form action="/config/tasks/add" method="post">
+            <table>
+              <tr>
+                <td><input type="text" name="command" placeholder="Command" required></td>
+                <td><input type="text" name="schedule" placeholder="Schedule" required></td>
+                <td><input type="text" name="type" placeholder="Type" required></td>
+                <td><input type="submit" value="Add Task"></td>
+              </tr>
+            </table>
+          </form>
           <table>
             <tr>
               <th>UUID</th>
@@ -171,10 +189,21 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
       data = URI.decode_www_form(request.body).to_h
       uuid = data['uuid']
 
-      self.class.delete_task(uuid)
       Tasks.remove(uuid)
+      self.class.delete_task(uuid)
 
       # and then redirect to /config/tasks
+      response.status = 302
+      response['Location'] = '/'
+    elsif request.path == '/config/tasks/add'
+      data = URI.decode_www_form(request.body).to_h
+      command = data['command']
+      schedule = data['schedule']
+      type = data['type']
+
+      uuid = Tasks.add(command, schedule, type)
+      self.class.add_task(uuid, command, schedule, type)
+
       response.status = 302
       response['Location'] = '/'
     else

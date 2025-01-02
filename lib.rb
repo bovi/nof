@@ -18,8 +18,9 @@ class Tasks
     # create a new task file in the tasks directory
     # with the given command, schedule, and type
     uuid = with_uuid || SecureRandom.uuid
-    task = { command: command, schedule: schedule, type: type }
+    task = { command: command, schedule: schedule.to_i, type: type }
     File.write(File.join(CONFIG_DIR, 'tasks', uuid), task.to_json)
+    uuid
   end
 
   def self.remove(uuid)

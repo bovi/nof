@@ -5,6 +5,8 @@ require 'thread'
 CONTROLLER_HOST = ENV['CONTROLLER_HOST'] || 'localhost'
 CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || 1880
 
+UPDATE_TASK_INTERVAL = 10
+
 @tasks = []
 @schedule_threads = {}
 
@@ -64,7 +66,7 @@ def update_task_schedules(new_tasks)
         loop do
           result = `#{command}`
           report_result(uuid, result)
-          sleep schedule
+          sleep schedule.to_i
         end
       end
     end
@@ -75,7 +77,7 @@ def start_executor
   Thread.new do
     loop do
       update_tasks
-      sleep 60 # Fetch tasks every 60 seconds
+      sleep UPDATE_TASK_INTERVAL
     end
   end
 end

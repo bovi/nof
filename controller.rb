@@ -10,6 +10,9 @@ DASHBOARD_PORT = ENV['DASHBOARD_PORT'] || 1080
 DASHBOARD_HOST = ENV['DASHBOARD_HOST'] || 'localhost'
 CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || 1880
 
+UPDATE_DATA_INTERVAL = 10
+UPDATE_CONFIG_INTERVAL = 10
+
 CONFIG_DIR = CONTROLLER_CONFIG_DIR
 
 class Updates
@@ -80,8 +83,13 @@ def update_config(state)
         puts "[#{Time.now}] Synced dashboard activities"
         ret['activities'].each do |activity|
           if activity['type'] == 'delete_task'
-            Tasks.remove(activity['uuid'])
-            puts "[#{Time.now}] Deleting task: #{activity['uuid']}"
+            Tasks.remove(activity['opt']['uuid'])
+            puts "[#{Time.now}] Deleting task: #{activity['opt']['uuid']}"
+          elsif activity['type'] == 'add_task'
+            uuid = Tasks.add(activity['opt']['command'], activity['opt']['schedule'], activity['opt']['type'], with_uuid: activity['opt']['uuid'])
+            puts "[#{Time.now}] Adding task: #{uuid}"
+          else
+            puts "[#{Time.now}] Unknown activity: #{activity}"
           end
         end
       elsif ret['message'] == 'nothing to sync'
@@ -144,20 +152,16 @@ end
 def start_controller
   init_dir(CONFIG_DIR)
 
-  Tasks.add('ping -c 1 localhost', 30, 'shell')
-  Tasks.add('echo "Hello, World!"', 10, 'shell')
-  Tasks.add('ls -lah', 20, 'shell')
-
   Thread.new do
     loop do
       update_data
-      sleep 60
+      sleep UPDATE_DATA_INTERVAL
     end
   end
   Thread.new do
     update_config(:init)
     loop do
-      sleep 10
+      sleep UPDATE_CONFIG_INTERVAL
       update_config(:sync)
     end
   end
