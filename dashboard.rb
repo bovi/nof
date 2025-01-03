@@ -13,60 +13,7 @@ CONFIG_DIR = DASHBOARD_CONFIG_DIR
 $dashboard_updates = []
 $mutex = Mutex.new
 
-class Activities
-  def initialize
-    @activities = []
-  end
-
-  def delete_task(uuid)
-    @activities << { timestamp: Time.now.to_i, type: 'delete_task', opt: { uuid: uuid } }
-  end
-
-  def add_task(uuid, command, schedule, type)
-    @activities << { timestamp: Time.now.to_i, type: 'add_task', opt: { uuid: uuid, command: command, schedule: schedule, type: type } }
-  end
-
-  def all
-    @activities
-  end
-end
-
 class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
-  @state = :init
-  @activities = Activities.new
-  @mutex = Mutex.new
-  class << self
-    attr_accessor :state, :mutex, :activities
-  end
-
-  def self.dashboard_state
-    @mutex.synchronize { @state }
-  end
-
-  def self.dashboard_state=(new_state)
-    @mutex.synchronize { @state = new_state }
-  end
-
-  def self.dashboard_activities
-    @mutex.synchronize { @activities.all }
-  end
-
-  def self.dashboard_activities_available?
-    @mutex.synchronize { @activities.all.any? }
-  end
-
-  def self.dashboard_activities_clean!
-    @mutex.synchronize { @activities.all.clear }
-  end
-
-  def self.delete_task(uuid)
-    @mutex.synchronize { @activities.delete_task(uuid) }
-  end
-
-  def self.add_task(uuid, command, schedule, type)
-    @mutex.synchronize { @activities.add_task(uuid, command, schedule, type) }
-  end
-
   def initialize(server)
     super(server)
   end
@@ -116,7 +63,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         <body>
           <h1>Dashboard</h1>
           <p>#{Time.now}</p>
-          <p>State: #{self.class.dashboard_state}</p>
+          <p>State: #{Dashboard.state}</p>
           <h2>Tasks</h2>
           <form action="/config/tasks/add" method="post">
             <table>
@@ -139,7 +86,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
           #{tasks}
           </table>
           <h2>Activities</h2>
-          <p>#{self.class.dashboard_activities}</p>
+          <p>#{Activities.all}</p>
           <h2>Updates</h2>
           <p>#{updates}</p>
         </body>
@@ -160,7 +107,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
       data = JSON.parse(request.body)
       type = data['type'] || ''
       if type == 'init'
-        if self.class.dashboard_state == :init
+        if Dashboard.state == :init
           puts "[#{Time.now}] re-initializing dashboard"
         end
 
@@ -169,16 +116,16 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         tasks.each do |task|
           Tasks.add(task['command'], task['schedule'], task['type'], with_uuid: task['uuid'])
         end
-        self.class.dashboard_state = :synced
+        Dashboard.state = :synced
         response.status = 200
         response['Content-Type'] = 'application/json'
         response.body = { message: 'ok' }.to_json
       elsif type == 'sync'
         response.status = 200
         response['Content-Type'] = 'application/json'
-        if self.class.dashboard_activities_available?
-          response.body = { message: 'sync', activities: self.class.dashboard_activities }.to_json
-          self.class.dashboard_activities_clean!
+        if Activities.any?
+          response.body = { message: 'sync', activities: Activities.all }.to_json
+          Activities.clean!
         else
           response.body = { message: 'nothing to sync' }.to_json
         end
@@ -190,7 +137,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
       uuid = data['uuid']
 
       Tasks.remove(uuid)
-      self.class.delete_task(uuid)
+      Activities.delete_task(uuid)
 
       # and then redirect to /config/tasks
       response.status = 302
@@ -202,7 +149,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
       type = data['type']
 
       uuid = Tasks.add(command, schedule, type)
-      self.class.add_task(uuid, command, schedule, type)
+      Activities.add_task(uuid, command, schedule, type)
 
       response.status = 302
       response['Location'] = '/'
@@ -214,10 +161,11 @@ end
 
 def init_dir(dir)
   puts "[#{Time.now}] Initializing directory: #{dir}"
-  %w[tasks].each do |subdir|
+  %w[tasks activities].each do |subdir|
     path = File.join(dir, subdir)
     Dir.mkdir(path) unless Dir.exist?(path)
   end
+  Dashboard.state = :init
 end
 
 def start_dashboard

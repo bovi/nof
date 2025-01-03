@@ -42,3 +42,47 @@ class Tasks
     end
   end
 end
+
+class Activities
+  def self.all
+    activities = []
+    Dir.glob(File.join(CONFIG_DIR, 'activities', '*')).each do |activity_file|
+      activity = JSON.parse(File.read(activity_file))
+      activity['activity_id'] = File.basename(activity_file)
+      activities << activity
+    end
+    activities
+  end
+
+  def self.any?
+    all.any?
+  end
+
+  def self.add_task(uuid, command, schedule, type)
+    activity = { timestamp: Time.now.to_i, type: 'add_task', opt: { uuid: uuid, command: command, schedule: schedule, type: type } }
+    n = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    File.write(File.join(CONFIG_DIR, 'activities', n), activity.to_json)
+  end
+
+  def self.delete_task(uuid)
+    activity = { timestamp: Time.now.to_i, type: 'delete_task', opt: { uuid: uuid } }
+    n = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    File.write(File.join(CONFIG_DIR, 'activities', n), activity.to_json)
+  end
+
+  def self.clean!
+    Dir.glob(File.join(CONFIG_DIR, 'activities', '*')).each do |activity_file|
+      File.delete(activity_file)
+    end
+  end
+end
+
+class Dashboard
+  def self.state
+    File.read(File.join(CONFIG_DIR, 'state')).strip.to_sym
+  end
+
+  def self.state=(_state)
+    File.write(File.join(CONFIG_DIR, 'state'), _state)
+  end
+end
