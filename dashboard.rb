@@ -19,115 +19,121 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
   end
 
   def do_GET(request, response)
-    updates = $mutex.synchronize { $dashboard_updates }
-    updates = updates.map { |update| "<p>[#{Time.at(update['timestamp'])}] #{update['message']}</p>" }.join
-    tasks = Tasks.all.map do |task|
-      <<-HTML
-        <tr>
-          <td>#{task['uuid']}</td>
-          <td>#{task['command']}</td>
-          <td>#{task['schedule']}</td>
-          <td>#{task['type']}</td>
-          <td>
-            <form action="/config/tasks/delete" method="post">
-              <input type="hidden" name="uuid" value="#{task['uuid']}">
-              <input type="submit" value="Delete">
-            </form>
-          </td>
-        </tr>
-      HTML
-    end.join
+    if request.path == '/version'
+      response.status = 200
+      response['Content-Type'] = 'application/json'
+      response.body = { version: "0.1" }.to_json
+    else
+      updates = $mutex.synchronize { $dashboard_updates }
+      updates = updates.map { |update| "<p>[#{Time.at(update['timestamp'])}] #{update['message']}</p>" }.join
+      tasks = Tasks.all.map do |task|
+        <<-HTML
+          <tr>
+            <td>#{task['uuid']}</td>
+            <td>#{task['command']}</td>
+            <td>#{task['schedule']}</td>
+            <td>#{task['type']}</td>
+            <td>
+              <form action="/config/tasks/delete" method="post">
+                <input type="hidden" name="uuid" value="#{task['uuid']}">
+                <input type="submit" value="Delete">
+              </form>
+            </td>
+          </tr>
+        HTML
+      end.join
 
-    hosts = Hosts.all.map do |host|
-      <<-HTML
-        <tr>
-          <td>#{host['uuid']}</td>
-          <td>#{host['name']}</td>
-          <td>#{host['ip']}</td>
-          <td>
-            <form action="/config/hosts/delete" method="post">
-              <input type="hidden" name="uuid" value="#{host['uuid']}">
-              <input type="submit" value="Delete">
-            </form>
-          </td>
-        </tr>
-      HTML
-    end.join
+      hosts = Hosts.all.map do |host|
+        <<-HTML
+          <tr>
+            <td>#{host['uuid']}</td>
+            <td>#{host['name']}</td>
+            <td>#{host['ip']}</td>
+            <td>
+              <form action="/config/hosts/delete" method="post">
+                <input type="hidden" name="uuid" value="#{host['uuid']}">
+                <input type="submit" value="Delete">
+              </form>
+            </td>
+          </tr>
+        HTML
+      end.join
 
-    response.content_type = 'text/html'
-    response.body = <<-HTML
-      <html>
-        <head>
-          <title>Dashboard</title>
-          <style>
-            table {
-              border-collapse: collapse;
-              width: 100%;
-            }
-            th, td {
-              border: 1px solid #ddd;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-            tr:nth-child(even) {
-              background-color: #f9f9f9;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Dashboard</h1>
-          <p>#{Time.now}</p>
-          <p>State: #{Dashboard.state}</p>
-          <h2>Tasks</h2>
-          <form action="/config/tasks/add" method="post">
+      response.content_type = 'text/html'
+      response.body = <<-HTML
+        <html>
+          <head>
+            <title>Dashboard</title>
+            <style>
+              table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+              th, td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+              }
+              th {
+                background-color: #f2f2f2;
+              }
+              tr:nth-child(even) {
+                background-color: #f9f9f9;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Dashboard</h1>
+            <p>#{Time.now}</p>
+            <p>State: #{Dashboard.state}</p>
+            <h2>Tasks</h2>
+            <form action="/config/tasks/add" method="post">
+              <table>
+                <tr>
+                  <td><input type="text" name="command" placeholder="Command" required></td>
+                  <td><input type="text" name="schedule" placeholder="Schedule" required></td>
+                  <td><input type="text" name="type" placeholder="Type" required></td>
+                  <td><input type="submit" value="Add Task"></td>
+                </tr>
+              </table>
+            </form>
             <table>
               <tr>
-                <td><input type="text" name="command" placeholder="Command" required></td>
-                <td><input type="text" name="schedule" placeholder="Schedule" required></td>
-                <td><input type="text" name="type" placeholder="Type" required></td>
-                <td><input type="submit" value="Add Task"></td>
+                <th>UUID</th>
+                <th>Command</th>
+                <th>Schedule</th>
+                <th>Type</th>
+                <th>Actions</th>
               </tr>
+            #{tasks}
             </table>
-          </form>
-          <table>
-            <tr>
-              <th>UUID</th>
-              <th>Command</th>
-              <th>Schedule</th>
-              <th>Type</th>
-              <th>Actions</th>
-            </tr>
-          #{tasks}
-          </table>
-          <h2>Hosts</h2>
-          <form action="/config/hosts/add" method="post">
+            <h2>Hosts</h2>
+            <form action="/config/hosts/add" method="post">
+              <table>
+                <tr>
+                  <td><input type="text" name="name" placeholder="Host Name" required></td>
+                  <td><input type="text" name="ip" placeholder="IP Address" required></td>
+                  <td><input type="submit" value="Add Host"></td>
+                </tr>
+              </table>
+            </form>
             <table>
               <tr>
-                <td><input type="text" name="name" placeholder="Host Name" required></td>
-                <td><input type="text" name="ip" placeholder="IP Address" required></td>
-                <td><input type="submit" value="Add Host"></td>
+                <th>UUID</th>
+                <th>Name</th>
+                <th>IP</th>
+                <th>Actions</th>
               </tr>
+              #{hosts}
             </table>
-          </form>
-          <table>
-            <tr>
-              <th>UUID</th>
-              <th>Name</th>
-              <th>IP</th>
-              <th>Actions</th>
-            </tr>
-            #{hosts}
-          </table>
-          <h2>Activities</h2>
-          <p>#{Activities.all}</p>
-          <h2>Updates</h2>
-          <p>#{updates}</p>
-        </body>
-      </html>
-    HTML
+            <h2>Activities</h2>
+            <p>#{Activities.all}</p>
+            <h2>Updates</h2>
+            <p>#{updates}</p>
+          </body>
+        </html>
+      HTML
+    end
   end
 
   def do_POST(request, response)
