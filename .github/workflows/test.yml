@@ -25,4 +25,4 @@ jobs:
 
     - name: Run tests
       run: |
-        bundle exec ruby test/integration_test.rb
+        bundle exec rake test
