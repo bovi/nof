@@ -4,6 +4,7 @@ require 'net/http'
 require 'thread'
 
 require_relative 'lib'
+require_relative 'lib/response_helper'
 
 CONTROLLER_CONFIG_DIR = ENV['CONTROLLER_CONFIG_DIR'] || Dir.mktmpdir
 DASHBOARD_PORT = ENV['DASHBOARD_PORT']&.to_i || Dashboard::DEFAULT_PORT
@@ -113,23 +114,15 @@ def update_config(state)
 end
 
 class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
+  include ResponseHelper
+  
   def do_GET(request, response)
-    if request.path == '/data'
-      response.status = 200
-      response['Content-Type'] = 'application/json'
-      response.body = { data: "test" }.to_json
-    elsif request.path == '/version'
-      response.status = 200
-      response['Content-Type'] = 'application/json'
-      response.body = { version: Controller::VERSION }.to_json
-    elsif request.path == '/tasks'
-      response.status = 200
-      response['Content-Type'] = 'application/json'
-      response.body = { tasks: Tasks.all }.to_json
+    if request.path == '/version.json'
+      json_response(response, Controller::VERSION)
+    elsif request.path == '/tasks.json'
+      json_response(response, Tasks.all)
     elsif request.path == '/hosts.json'
-      response.status = 200
-      response['Content-Type'] = 'application/json'
-      response.body = Hosts.all.to_json
+      json_response(response, Hosts.all)
     else
       response.status = 404
     end

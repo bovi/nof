@@ -49,10 +49,34 @@ class IntegrationTest < Minitest::Test
     FileUtils.rm_rf(TEST_DIR)
   end
 
+  def get(service, path)
+    uri = URI("http://localhost:#{service::DEFAULT_PORT}#{path}")
+    response = Net::HTTP.get(uri)
+    JSON.parse(response)
+  end
+
+  def get_dashboard(path)
+    get(Dashboard, path)
+  end
+
+  def get_controller(path)
+    get(Controller, path)
+  end
+
+  def post(service, path, data)
+    uri = URI("http://localhost:#{service::DEFAULT_PORT}#{path}")
+    response = Net::HTTP.post(uri, URI.encode_www_form(data))
+    assert_equal 302, response.code.to_i
+  end
+
+  def post_dashboard(path, data)
+    post(Dashboard, path, data)
+  end
+
   def test_version_match
     # Get versions from all components
-    controller_version = JSON.parse(Net::HTTP.get(URI("http://localhost:#{Controller::DEFAULT_PORT}/version")))['version']
-    dashboard_version = JSON.parse(Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/version")))['version']
+    controller_version = get_controller('/version.json')
+    dashboard_version = get_dashboard('/version.json')
 
     # All components should have the same version
     assert_equal Controller::VERSION, controller_version
@@ -64,15 +88,10 @@ class IntegrationTest < Minitest::Test
     test_ip = '192.168.1.100'
 
     # Create a new host via POST request
-    uri = URI("http://localhost:#{Dashboard::DEFAULT_PORT}/config/hosts/add")
-    data = URI.encode_www_form({
+    post_dashboard('/config/hosts/add', {
       'name' => test_host,
       'ip' => test_ip
     })
-    response = Net::HTTP.post(uri, data)
-    
-    # Verify redirect response
-    assert_equal 302, response.code.to_i
     
     # Get the dashboard page and verify the host is listed
     dashboard_response = Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/"))
@@ -83,8 +102,7 @@ class IntegrationTest < Minitest::Test
     sleep 2
 
     # Get the controller page and verify the host is listed
-    controller_response = Net::HTTP.get(URI("http://localhost:#{Controller::DEFAULT_PORT}/hosts.json"))
-    hosts = JSON.parse(controller_response)
+    hosts = get_controller('/hosts.json')
     assert_equal 1, hosts.length
     assert_equal test_host, hosts[0]['name']
     assert_equal test_ip, hosts[0]['ip']

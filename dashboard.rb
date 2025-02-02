@@ -4,6 +4,7 @@ require 'json'
 require 'thread'
 
 require_relative 'lib'
+require_relative 'lib/response_helper'
 
 DASHBOARD_CONFIG_DIR = ENV['CONTROLLER_CONFIG_DIR'] || Dir.mktmpdir
 DASHBOARD_PORT = ENV['DASHBOARD_PORT'] || Dashboard::DEFAULT_PORT
@@ -14,15 +15,17 @@ $dashboard_updates = []
 $mutex = Mutex.new
 
 class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
+  include ResponseHelper
+
   def initialize(server)
     super(server)
   end
 
   def do_GET(request, response)
-    if request.path == '/version'
-      response.status = 200
-      response['Content-Type'] = 'application/json'
-      response.body = { version: Dashboard::VERSION }.to_json
+    if request.path == '/version.json'
+      json_response(response, Dashboard::VERSION)
+    elsif request.path == '/hosts.json'
+      json_response(response, Hosts.all)
     else
       updates = $mutex.synchronize { $dashboard_updates }
       updates = updates.map { |update| "<p>[#{Time.at(update['timestamp'])}] #{update['message']}</p>" }.join
