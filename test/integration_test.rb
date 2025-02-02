@@ -125,4 +125,47 @@ class IntegrationTest < Minitest::Test
     hosts = get_controller('/hosts.json')
     assert_equal 0, hosts.length
   end
+
+  def test_task_mgmt
+    test_command = 'echo "test"'
+    test_schedule = '5'
+    test_type = 'shell'
+
+    # Create a new task via POST request
+    post_dashboard('/config/tasks/add', {
+      'command' => test_command,
+      'schedule' => test_schedule,
+      'type' => test_type
+    })
+    
+    # Get the dashboard page and verify the task is listed
+    dashboard_response = Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/"))
+    assert_includes dashboard_response, test_command
+
+    # wait a moment until the controller syncs the task
+    sleep SYNC_INTERVAL + 1
+
+    # Get the controller page and verify the task is listed
+    tasks = get_controller('/tasks.json')
+    assert_equal 1, tasks.length
+    assert_equal test_command, tasks[0]['command']
+    assert_equal test_schedule.to_i, tasks[0]['schedule']
+    assert_equal test_type, tasks[0]['type']
+
+    # Delete the task via POST request
+    post_dashboard('/config/tasks/delete', {
+      'uuid' => tasks[0]['uuid']
+    })
+
+    # Get the dashboard page and verify the task is no longer listed
+    dashboard_response = Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/"))
+    refute_includes dashboard_response, test_command
+
+    # wait a moment until the controller syncs the task deletion
+    sleep SYNC_INTERVAL + 1
+
+    # Get the controller page and verify the task is no longer listed
+    tasks = get_controller('/tasks.json')
+    assert_equal 0, tasks.length
+  end
 end 
