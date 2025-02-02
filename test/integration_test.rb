@@ -4,16 +4,24 @@ require 'json'
 require 'fileutils'
 require 'tmpdir'
 
-ENV['DISABLE_LOGGING'] = '1'
+require_relative '../lib'
+
 
 class IntegrationTest < Minitest::Test
+  TEST_DIR = File.expand_path('../tmp/test', __dir__)
+  CONTROLLER_DIR = File.join(TEST_DIR, 'controller')
+  DASHBOARD_DIR = File.join(TEST_DIR, 'dashboard')
+
   def setup
-    # Create separate temp directories for controller and dashboard
-    @controller_dir = Dir.mktmpdir
-    @dashboard_dir = Dir.mktmpdir
+    # Create test directories
+    FileUtils.rm_rf(TEST_DIR)
+    FileUtils.mkdir_p(CONTROLLER_DIR)
+    FileUtils.mkdir_p(DASHBOARD_DIR)
     
-    #ENV['CONTROLLER_CONFIG_DIR'] = @controller_dir
-    #ENV['DASHBOARD_CONFIG_DIR'] = @dashboard_dir
+    # Set environment variables for configuration directories
+    ENV['DISABLE_LOGGING'] = '1'
+    ENV['CONTROLLER_CONFIG_DIR'] = CONTROLLER_DIR
+    ENV['DASHBOARD_CONFIG_DIR'] = DASHBOARD_DIR
     
     # Start all components
     @dashboard_pid = spawn('ruby', 'dashboard.rb')
@@ -33,17 +41,16 @@ class IntegrationTest < Minitest::Test
     sleep 2
     
     # Clean up test directories
-    FileUtils.remove_entry @controller_dir
-    FileUtils.remove_entry @dashboard_dir
+    FileUtils.rm_rf(TEST_DIR)
   end
 
   def test_version_match
     # Get versions from all components
-    controller_version = JSON.parse(Net::HTTP.get(URI("http://localhost:1880/version")))['version']
-    dashboard_version = JSON.parse(Net::HTTP.get(URI("http://localhost:1080/version")))['version']
+    controller_version = JSON.parse(Net::HTTP.get(URI("http://localhost:#{Controller::DEFAULT_PORT}/version")))['version']
+    dashboard_version = JSON.parse(Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/version")))['version']
 
     # All components should have the same version
-    assert_equal '0.1', controller_version
-    assert_equal '0.1', dashboard_version
+    assert_equal Controller::VERSION, controller_version
+    assert_equal Dashboard::VERSION, dashboard_version
   end
 end 

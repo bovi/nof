@@ -6,9 +6,9 @@ require 'thread'
 require_relative 'lib'
 
 CONTROLLER_CONFIG_DIR = ENV['CONTROLLER_CONFIG_DIR'] || Dir.mktmpdir
-DASHBOARD_PORT = ENV['DASHBOARD_PORT'] || 1080
+DASHBOARD_PORT = ENV['DASHBOARD_PORT'] || Dashboard::DEFAULT_PORT
 DASHBOARD_HOST = ENV['DASHBOARD_HOST'] || 'localhost'
-CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || 1880
+CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || Controller::DEFAULT_PORT
 
 UPDATE_DATA_INTERVAL = 10
 UPDATE_CONFIG_INTERVAL = 10
@@ -121,7 +121,7 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
     elsif request.path == '/version'
       response.status = 200
       response['Content-Type'] = 'application/json'
-      response.body = { version: "0.1" }.to_json
+      response.body = { version: Controller::VERSION }.to_json
     elsif request.path == '/tasks'
       response.status = 200
       response['Content-Type'] = 'application/json'

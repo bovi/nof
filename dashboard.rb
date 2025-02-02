@@ -6,7 +6,7 @@ require 'thread'
 require_relative 'lib'
 
 DASHBOARD_CONFIG_DIR = ENV['CONTROLLER_CONFIG_DIR'] || Dir.mktmpdir
-DASHBOARD_PORT = ENV['DASHBOARD_PORT'] || 1080
+DASHBOARD_PORT = ENV['DASHBOARD_PORT'] || Dashboard::DEFAULT_PORT
 
 CONFIG_DIR = DASHBOARD_CONFIG_DIR
 
@@ -22,7 +22,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
     if request.path == '/version'
       response.status = 200
       response['Content-Type'] = 'application/json'
-      response.body = { version: "0.1" }.to_json
+      response.body = { version: Dashboard::VERSION }.to_json
     else
       updates = $mutex.synchronize { $dashboard_updates }
       updates = updates.map { |update| "<p>[#{Time.at(update['timestamp'])}] #{update['message']}</p>" }.join

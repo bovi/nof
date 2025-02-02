@@ -1,6 +1,20 @@
 require 'securerandom'
 require 'json'
 
+class Dashboard
+  VERSION = '0.1'
+  DEFAULT_PORT = 1080
+end
+
+class Controller
+  VERSION = '0.1'
+  DEFAULT_PORT = 1880
+end 
+
+class Executor
+  VERSION = '0.1'
+end
+
 class Tasks
   def self.all
     # iterate over all files in the tasks directory

@@ -5,7 +5,7 @@ require 'thread'
 require_relative 'lib'
 
 CONTROLLER_HOST = ENV['CONTROLLER_HOST'] || 'localhost'
-CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || 1880
+CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || Controller::DEFAULT_PORT
 
 UPDATE_TASK_INTERVAL = 10
 
