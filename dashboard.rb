@@ -150,7 +150,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
       type = data['type'] || ''
       if type == 'init'
         if Dashboard.state == :init
-          puts "[#{Time.now}] re-initializing dashboard"
+          log("re-initializing dashboard")
         end
 
         Tasks.clean!
@@ -221,7 +221,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
 end
 
 def init_dir(dir)
-  puts "[#{Time.now}] Initializing directory: #{dir}"
+  log("Initializing directory: #{dir}")
   %w[tasks activities hosts].each do |subdir|
     path = File.join(dir, subdir)
     Dir.mkdir(path) unless Dir.exist?(path)
@@ -231,7 +231,16 @@ end
 
 def start_dashboard
   init_dir(CONFIG_DIR)
-  server = WEBrick::HTTPServer.new(Port: DASHBOARD_PORT)
+  
+  server_config = { Port: DASHBOARD_PORT }
+  if ENV['DISABLE_LOGGING']
+    server_config.merge!(
+      Logger: WEBrick::Log.new(File::NULL),
+      AccessLog: []
+    )
+  end
+  
+  server = WEBrick::HTTPServer.new(server_config)
   server.mount '/', DashboardServlet
   server
 end

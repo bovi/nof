@@ -41,6 +41,12 @@ class Tasks
       File.delete(task_file)
     end
   end
+
+end
+
+def log(message)
+  return if ENV['DISABLE_LOGGING']
+  puts "[#{Time.now}] #{message}"
 end
 
 class Activities

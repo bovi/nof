@@ -49,12 +49,12 @@ def update_data
     response = http.request(request)
 
     unless response.is_a?(Net::HTTPSuccess)
-      puts "[#{Time.now}] Failed to update dashboard: #{response.code} #{response.message}"
+      log("Failed to update dashboard: #{response.code} #{response.message}")
     else
       $controller_updates.clean!
     end
   rescue Errno::ECONNREFUSED
-    puts "[#{Time.now}] Connection to dashboard refused"
+    log("Connection to dashboard refused")
   end
 end
 
@@ -76,39 +76,39 @@ def update_config(state)
     if response.is_a?(Net::HTTPSuccess)
       ret = JSON.parse(response.body)
       if ret['message'] == 'ok'
-        puts "[#{Time.now}] Updated dashboard config"
+        log("Updated dashboard config")
       elsif ret['message'] == 'already init'
-        puts "[#{Time.now}] Dashboard already initialized"
+        log("Dashboard already initialized")
       elsif ret['message'] == 'sync'
-        puts "[#{Time.now}] Synced dashboard activities"
+        log("Synced dashboard activities")
         ret['activities'].each do |activity|
           case activity['type']
           when 'delete_task'
             Tasks.remove(activity['opt']['uuid'])
-            puts "[#{Time.now}] Deleting task: #{activity['opt']['uuid']}"
+            log("Deleting task: #{activity['opt']['uuid']}")
           when 'add_task'
             uuid = Tasks.add(activity['opt']['command'], activity['opt']['schedule'], activity['opt']['type'], with_uuid: activity['opt']['uuid'])
-            puts "[#{Time.now}] Adding task: #{uuid}"
+            log("Adding task: #{uuid}")
           when 'delete_host'
             Hosts.remove(activity['opt']['uuid'])
-            puts "[#{Time.now}] Deleting host: #{activity['opt']['uuid']}"
+            log("Deleting host: #{activity['opt']['uuid']}")
           when 'add_host'
             uuid = Hosts.add(activity['opt']['name'], activity['opt']['ip'], with_uuid: activity['opt']['uuid'])
-            puts "[#{Time.now}] Adding host: #{uuid}"
+            log("Adding host: #{uuid}")
           else
-            puts "[#{Time.now}] Unknown activity: #{activity}"
+            log("Unknown activity: #{activity}")
           end
         end
       elsif ret['message'] == 'nothing to sync'
-        puts "[#{Time.now}] Nothing to sync"
+        log("Nothing to sync")
       else
-        puts "[#{Time.now}] Failed to update dashboard config: #{ret['message']}"
+        log("Failed to update dashboard config: #{ret['message']}")
       end
     else
-      puts "[#{Time.now}] Failed to update dashboard config: #{response.code} #{response.message}"
+      log("Failed to update dashboard config: #{response.code} #{response.message}")
     end
   rescue Errno::ECONNREFUSED
-    puts "[#{Time.now}] Connection to dashboard refused"
+    log("Connection to dashboard refused")
   end
 end
 
@@ -149,7 +149,7 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
 end
 
 def init_dir(dir)
-  puts "[#{Time.now}] Initializing directory: #{dir}"
+  log("Initializing directory: #{dir}")
   %w[tasks results hosts].each do |subdir|
     path = File.join(dir, subdir)
     Dir.mkdir(path) unless Dir.exist?(path)
@@ -173,7 +173,15 @@ def start_controller
     end
   end
 
-  server = WEBrick::HTTPServer.new(:Port => CONTROLLER_PORT)
+  server_config = { Port: CONTROLLER_PORT }
+  if ENV['DISABLE_LOGGING']
+    server_config.merge!(
+      Logger: WEBrick::Log.new(File::NULL),
+      AccessLog: []
+    )
+  end
+  
+  server = WEBrick::HTTPServer.new(server_config)
   server.mount '/', ControllerServlet
 
   server

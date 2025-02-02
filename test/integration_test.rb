@@ -4,6 +4,8 @@ require 'json'
 require 'fileutils'
 require 'tmpdir'
 
+ENV['DISABLE_LOGGING'] = '1'
+
 class IntegrationTest < Minitest::Test
   def setup
     # Create separate temp directories for controller and dashboard
