@@ -37,6 +37,23 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         </tr>
       HTML
     end.join
+
+    hosts = Hosts.all.map do |host|
+      <<-HTML
+        <tr>
+          <td>#{host['uuid']}</td>
+          <td>#{host['name']}</td>
+          <td>#{host['ip']}</td>
+          <td>
+            <form action="/config/hosts/delete" method="post">
+              <input type="hidden" name="uuid" value="#{host['uuid']}">
+              <input type="submit" value="Delete">
+            </form>
+          </td>
+        </tr>
+      HTML
+    end.join
+
     response.content_type = 'text/html'
     response.body = <<-HTML
       <html>
@@ -84,6 +101,25 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
               <th>Actions</th>
             </tr>
           #{tasks}
+          </table>
+          <h2>Hosts</h2>
+          <form action="/config/hosts/add" method="post">
+            <table>
+              <tr>
+                <td><input type="text" name="name" placeholder="Host Name" required></td>
+                <td><input type="text" name="ip" placeholder="IP Address" required></td>
+                <td><input type="submit" value="Add Host"></td>
+              </tr>
+            </table>
+          </form>
+          <table>
+            <tr>
+              <th>UUID</th>
+              <th>Name</th>
+              <th>IP</th>
+              <th>Actions</th>
+            </tr>
+            #{hosts}
           </table>
           <h2>Activities</h2>
           <p>#{Activities.all}</p>
@@ -153,6 +189,25 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
 
       response.status = 302
       response['Location'] = '/'
+    elsif request.path == '/config/hosts/delete'
+      data = URI.decode_www_form(request.body).to_h
+      uuid = data['uuid']
+
+      Hosts.remove(uuid)
+      Activities.delete_host(uuid)
+
+      response.status = 302
+      response['Location'] = '/'
+    elsif request.path == '/config/hosts/add'
+      data = URI.decode_www_form(request.body).to_h
+      name = data['name']
+      ip = data['ip']
+
+      uuid = Hosts.add(name, ip)
+      Activities.add_host(uuid, name, ip)
+
+      response.status = 302
+      response['Location'] = '/'
     else
       response.status = 404
     end
@@ -161,7 +216,7 @@ end
 
 def init_dir(dir)
   puts "[#{Time.now}] Initializing directory: #{dir}"
-  %w[tasks activities].each do |subdir|
+  %w[tasks activities hosts].each do |subdir|
     path = File.join(dir, subdir)
     Dir.mkdir(path) unless Dir.exist?(path)
   end

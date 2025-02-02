@@ -82,12 +82,19 @@ def update_config(state)
       elsif ret['message'] == 'sync'
         puts "[#{Time.now}] Synced dashboard activities"
         ret['activities'].each do |activity|
-          if activity['type'] == 'delete_task'
+          case activity['type']
+          when 'delete_task'
             Tasks.remove(activity['opt']['uuid'])
             puts "[#{Time.now}] Deleting task: #{activity['opt']['uuid']}"
-          elsif activity['type'] == 'add_task'
+          when 'add_task'
             uuid = Tasks.add(activity['opt']['command'], activity['opt']['schedule'], activity['opt']['type'], with_uuid: activity['opt']['uuid'])
             puts "[#{Time.now}] Adding task: #{uuid}"
+          when 'delete_host'
+            Hosts.remove(activity['opt']['uuid'])
+            puts "[#{Time.now}] Deleting host: #{activity['opt']['uuid']}"
+          when 'add_host'
+            uuid = Hosts.add(activity['opt']['name'], activity['opt']['ip'], with_uuid: activity['opt']['uuid'])
+            puts "[#{Time.now}] Adding host: #{uuid}"
           else
             puts "[#{Time.now}] Unknown activity: #{activity}"
           end
@@ -143,7 +150,7 @@ end
 
 def init_dir(dir)
   puts "[#{Time.now}] Initializing directory: #{dir}"
-  %w[tasks results].each do |subdir|
+  %w[tasks results hosts].each do |subdir|
     path = File.join(dir, subdir)
     Dir.mkdir(path) unless Dir.exist?(path)
   end

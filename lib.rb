@@ -70,6 +70,18 @@ class Activities
     File.write(File.join(CONFIG_DIR, 'activities', n), activity.to_json)
   end
 
+  def self.add_host(uuid, name, ip)
+    activity = { timestamp: Time.now.to_i, type: 'add_host', opt: { uuid: uuid, name: name, ip: ip } }
+    n = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    File.write(File.join(CONFIG_DIR, 'activities', n), activity.to_json)
+  end
+
+  def self.delete_host(uuid)
+    activity = { timestamp: Time.now.to_i, type: 'delete_host', opt: { uuid: uuid } }
+    n = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    File.write(File.join(CONFIG_DIR, 'activities', n), activity.to_json)
+  end
+
   def self.clean!
     Dir.glob(File.join(CONFIG_DIR, 'activities', '*')).each do |activity_file|
       File.delete(activity_file)
@@ -84,5 +96,34 @@ class Dashboard
 
   def self.state=(_state)
     File.write(File.join(CONFIG_DIR, 'state'), _state)
+  end
+end
+
+class Hosts
+  def self.all
+    hosts = []
+    Dir.glob(File.join(CONFIG_DIR, 'hosts', '*')).each do |host_file|
+      host = JSON.parse(File.read(host_file))
+      host['uuid'] = File.basename(host_file)
+      hosts << host
+    end
+    hosts
+  end
+
+  def self.add(name, ip, with_uuid: nil)
+    uuid = with_uuid || SecureRandom.uuid
+    host = { name: name, ip: ip }
+    File.write(File.join(CONFIG_DIR, 'hosts', uuid), host.to_json)
+    uuid
+  end
+
+  def self.remove(uuid)
+    File.delete(File.join(CONFIG_DIR, 'hosts', uuid))
+  end
+
+  def self.clean!
+    Dir.glob(File.join(CONFIG_DIR, 'hosts', '*')).each do |host_file|
+      File.delete(host_file)
+    end
   end
 end
