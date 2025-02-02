@@ -198,7 +198,23 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
       
       # Extract template_uuid and host_uuid from the combined uuid
       template_uuid, host_uuid = uuid.split('_')
-      
+     
+      # check if host still exists
+      host = Hosts.get(host_uuid)
+      if host.nil?
+        log("Host #{host_uuid} not found, skipping task #{template_uuid}")
+        response.body = { message: "host not found" }.to_json
+        return
+      end
+
+      # check if template still exists
+      template = TaskTemplates.get(template_uuid)
+      if template.nil?
+        log("Template #{template_uuid} not found, skipping task #{template_uuid}")
+        response.body = { message: "template not found" }.to_json
+        return
+      end
+
       TaskTemplates.add_result(template_uuid, host_uuid, result, timestamp)
       $controller_updates.add("Task #{template_uuid} for host #{host_uuid} reported result: #{result}")
       response.body = { message: "ok" }.to_json

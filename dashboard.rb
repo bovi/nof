@@ -284,9 +284,6 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
 
         uuid = TaskTemplates.add(command, schedule, type, group_uuids)
         Activities.add_task_template(uuid, command, schedule, type, group_uuids)
-        group_uuids.each do |group_uuid|
-          Activities.add_template_to_group(uuid, group_uuid)
-        end
 
       when '/config/task_templates/add_group'
         data = URI.decode_www_form(request.body).to_h

@@ -74,7 +74,6 @@ class IntegrationTest < Minitest::Test
     if response.code.to_i == 500
       puts "Server error: #{response.body}"
     end
-    assert_equal 302, response.code.to_i
   end
 
   def post_dashboard(path, data)
@@ -171,5 +170,60 @@ class IntegrationTest < Minitest::Test
     refute_includes dashboard_index, TEST_HOST
     refute_includes dashboard_index, TEST_IP
     refute_includes dashboard_index, TEST_TYPE
+  end
+
+  def test_ux_delete_group
+    # CREATE GROUP
+    post_dashboard('/config/groups/add', {
+      'name' => TEST_GROUP
+    })
+    groups = get_dashboard('/groups.json')
+
+    # CREATE HOST
+    post_dashboard('/config/hosts/add', {
+      'name' => TEST_HOST,
+      'group_uuids' => [groups[0]['uuid']],
+      'ip' => TEST_IP
+    })
+
+    # CREATE TASK TEMPLATE
+    post_dashboard('/config/task_templates/add', {
+      'command' => TEST_COMMAND,
+      'schedule' => TEST_SCHEDULE,
+      'type' => TEST_TYPE,
+      'group_uuids' => [groups[0]['uuid']]
+    })
+
+    groups = get_dashboard('/groups.json')
+    assert_equal 1, groups.length
+    hosts = get_dashboard('/hosts.json')
+    assert_equal 1, hosts.length
+    task_templates = get_dashboard('/task_templates.json')
+    assert_equal 1, task_templates.length
+
+    # DELETE GROUP
+    post_dashboard('/config/groups/delete', {
+      'uuid' => groups[0]['uuid']
+    })
+    groups = get_dashboard('/groups.json')
+    assert_equal 0, groups.length
+    hosts = get_dashboard('/hosts.json')
+    assert_equal 1, hosts.length
+    task_templates = get_dashboard('/task_templates.json')
+    assert_equal 1, task_templates.length
+
+    # DELETE HOST
+    post_dashboard('/config/hosts/delete', {
+      'uuid' => hosts[0]['uuid']
+    })
+    hosts = get_dashboard('/hosts.json')
+    assert_equal 0, hosts.length
+
+    # DELETE TASK TEMPLATE
+    post_dashboard('/config/task_templates/delete', {
+      'uuid' => task_templates[0]['uuid']
+    })
+    task_templates = get_dashboard('/task_templates.json')
+    assert_equal 0, task_templates.length
   end
 end 

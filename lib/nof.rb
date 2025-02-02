@@ -278,6 +278,10 @@ class TaskTemplates
       db.execute("DELETE FROM task_templates")
     end
   end
+
+  def self.get(uuid)
+    db.execute("SELECT * FROM task_templates WHERE uuid = ?", [uuid]).first
+  end
 end
 
 class Groups
@@ -325,6 +329,8 @@ class Groups
   end
 
   def self.remove(uuid)
+    db.execute("DELETE FROM host_groups WHERE group_uuid = ?", [uuid])
+    db.execute("DELETE FROM task_template_groups WHERE group_uuid = ?", [uuid])
     db.execute("DELETE FROM groups WHERE uuid = ?", [uuid])
   end
 
@@ -450,6 +456,10 @@ class Hosts
 
   def self.clean!
     db.execute("DELETE FROM hosts")
+  end
+
+  def self.get(uuid)
+    db.execute("SELECT * FROM hosts WHERE uuid = ?", [uuid]).first
   end
 end
 
