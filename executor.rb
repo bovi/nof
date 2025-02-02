@@ -14,7 +14,7 @@ UPDATE_TASK_INTERVAL = 10
 
 def update_tasks
   log("update_tasks()")
-  uri = URI("http://#{CONTROLLER_HOST}:#{CONTROLLER_PORT}/tasks")
+  uri = URI("http://#{CONTROLLER_HOST}:#{CONTROLLER_PORT}/tasks.json")
   begin
     res = Net::HTTP.get_response(uri)
   rescue Errno::ECONNREFUSED
@@ -22,7 +22,7 @@ def update_tasks
     res = nil
   end
   if res.is_a?(Net::HTTPSuccess)
-    new_tasks = JSON.parse(res.body)['tasks']
+    new_tasks = JSON.parse(res.body)
     update_task_schedules(new_tasks)
     @tasks = new_tasks
   else

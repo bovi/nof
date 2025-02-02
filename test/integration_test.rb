@@ -168,4 +168,41 @@ class IntegrationTest < Minitest::Test
     tasks = get_controller('/tasks.json')
     assert_equal 0, tasks.length
   end
+
+  def test_group_mgmt
+    test_group = 'test-group'
+    
+    # Create a new group via POST request
+    post_dashboard('/config/groups/add', {
+      'name' => test_group
+    })
+    
+    # Get the dashboard page and verify the group is listed
+    dashboard_response = Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/"))
+    assert_includes dashboard_response, test_group
+
+    # wait a moment until the controller syncs the group
+    sleep SYNC_INTERVAL + 1
+
+    # Get the controller page and verify the group is listed
+    groups = get_controller('/groups.json')
+    assert_equal 1, groups.length
+    assert_equal test_group, groups[0]['name']
+
+    # Delete the group via POST request
+    post_dashboard('/config/groups/delete', {
+      'uuid' => groups[0]['uuid']
+    })
+
+    # Get the dashboard page and verify the group is no longer listed
+    dashboard_response = Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/"))
+    refute_includes dashboard_response, test_group
+
+    # wait a moment until the controller syncs the group
+    sleep SYNC_INTERVAL + 1
+
+    # Get the controller page and verify the group is no longer listed
+    groups = get_controller('/groups.json')
+    assert_equal 0, groups.length
+  end
 end 

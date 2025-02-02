@@ -1,11 +1,17 @@
 require 'securerandom'
 require 'json'
 
-require_relative 'response_helper'
-
 class Dashboard
   VERSION = '0.1'
   DEFAULT_PORT = 1080
+
+  def self.state
+    File.read(File.join(CONFIG_DIR, 'state')).strip.to_sym
+  end
+
+  def self.state=(_state)
+    File.write(File.join(CONFIG_DIR, 'state'), _state)
+  end
 end
 
 class Controller
@@ -57,12 +63,64 @@ class Tasks
       File.delete(task_file)
     end
   end
-
 end
 
-def log(message)
-  return if ENV['DISABLE_LOGGING']
-  puts "[#{Time.now}] #{message}"
+class Groups
+  def self.all
+    groups = []
+    Dir.glob(File.join(CONFIG_DIR, 'groups', '*')).each do |group_file|
+      group = JSON.parse(File.read(group_file))
+      group['uuid'] = File.basename(group_file)
+      groups << group
+    end
+    groups
+  end
+
+  def self.add(name, with_uuid: nil)
+    uuid = with_uuid || SecureRandom.uuid
+    group = { name: name }
+    File.write(File.join(CONFIG_DIR, 'groups', uuid), group.to_json)
+    uuid
+  end
+
+  def self.remove(uuid)
+    File.delete(File.join(CONFIG_DIR, 'groups', uuid))
+  end
+
+  def self.clean!
+    Dir.glob(File.join(CONFIG_DIR, 'groups', '*')).each do |group_file|
+      File.delete(group_file)
+    end
+  end
+end
+
+class Hosts
+  def self.all
+    hosts = []
+    Dir.glob(File.join(CONFIG_DIR, 'hosts', '*')).each do |host_file|
+      host = JSON.parse(File.read(host_file))
+      host['uuid'] = File.basename(host_file)
+      hosts << host
+    end
+    hosts
+  end
+
+  def self.add(name, ip, with_uuid: nil)
+    uuid = with_uuid || SecureRandom.uuid
+    host = { name: name, ip: ip }
+    File.write(File.join(CONFIG_DIR, 'hosts', uuid), host.to_json)
+    uuid
+  end
+
+  def self.remove(uuid)
+    File.delete(File.join(CONFIG_DIR, 'hosts', uuid))
+  end
+
+  def self.clean!
+    Dir.glob(File.join(CONFIG_DIR, 'hosts', '*')).each do |host_file|
+      File.delete(host_file)
+    end
+  end
 end
 
 class Activities
@@ -104,6 +162,18 @@ class Activities
     File.write(File.join(CONFIG_DIR, 'activities', n), activity.to_json)
   end
 
+  def self.add_group(uuid, name)
+    activity = { timestamp: Time.now.to_i, type: 'add_group', opt: { uuid: uuid, name: name } }
+    n = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    File.write(File.join(CONFIG_DIR, 'activities', n), activity.to_json)
+  end
+
+  def self.delete_group(uuid)
+    activity = { timestamp: Time.now.to_i, type: 'delete_group', opt: { uuid: uuid } }
+    n = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    File.write(File.join(CONFIG_DIR, 'activities', n), activity.to_json)
+  end
+
   def self.clean!
     Dir.glob(File.join(CONFIG_DIR, 'activities', '*')).each do |activity_file|
       File.delete(activity_file)
@@ -111,41 +181,15 @@ class Activities
   end
 end
 
-class Dashboard
-  def self.state
-    File.read(File.join(CONFIG_DIR, 'state')).strip.to_sym
-  end
-
-  def self.state=(_state)
-    File.write(File.join(CONFIG_DIR, 'state'), _state)
-  end
+def log(message)
+  return if ENV['DISABLE_LOGGING']
+  puts "[#{Time.now}] #{message}"
 end
 
-class Hosts
-  def self.all
-    hosts = []
-    Dir.glob(File.join(CONFIG_DIR, 'hosts', '*')).each do |host_file|
-      host = JSON.parse(File.read(host_file))
-      host['uuid'] = File.basename(host_file)
-      hosts << host
-    end
-    hosts
-  end
-
-  def self.add(name, ip, with_uuid: nil)
-    uuid = with_uuid || SecureRandom.uuid
-    host = { name: name, ip: ip }
-    File.write(File.join(CONFIG_DIR, 'hosts', uuid), host.to_json)
-    uuid
-  end
-
-  def self.remove(uuid)
-    File.delete(File.join(CONFIG_DIR, 'hosts', uuid))
-  end
-
-  def self.clean!
-    Dir.glob(File.join(CONFIG_DIR, 'hosts', '*')).each do |host_file|
-      File.delete(host_file)
-    end
+module ResponseHelper
+  def json_response(response, data)
+    response.status = 200
+    response['Content-Type'] = 'application/json'
+    response.body = data.to_json
   end
 end

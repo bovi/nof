@@ -61,6 +61,21 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         HTML
       end.join
 
+      groups = Groups.all.map do |group|
+        <<-HTML
+          <tr>
+            <td>#{group['uuid']}</td>
+            <td>#{group['name']}</td>
+            <td>
+              <form action="/config/groups/delete" method="post">
+                <input type="hidden" name="uuid" value="#{group['uuid']}">
+                <input type="submit" value="Delete">
+              </form>
+            </td>
+          </tr>
+        HTML
+      end.join
+
       response.content_type = 'text/html'
       response.body = <<-HTML
         <html>
@@ -127,6 +142,23 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
                 <th>Actions</th>
               </tr>
               #{hosts}
+            </table>
+            <h2>Groups</h2>
+            <form action="/config/groups/add" method="post">
+              <table>
+                <tr>
+                  <td><input type="text" name="name" placeholder="Group Name" required></td>
+                  <td><input type="submit" value="Add Group"></td>
+                </tr>
+              </table>
+            </form>
+            <table>
+              <tr>
+                <th>UUID</th>
+                <th>Name</th>
+                <th>Actions</th>
+              </tr>
+              #{groups}
             </table>
             <h2>Activities</h2>
             <p>#{Activities.all}</p>
@@ -216,6 +248,24 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
 
       response.status = 302
       response['Location'] = '/'
+    elsif request.path == '/config/groups/delete'
+      data = URI.decode_www_form(request.body).to_h
+      uuid = data['uuid']
+
+      Groups.remove(uuid)
+      Activities.delete_group(uuid)
+
+      response.status = 302
+      response['Location'] = '/'
+    elsif request.path == '/config/groups/add'
+      data = URI.decode_www_form(request.body).to_h
+      name = data['name']
+
+      uuid = Groups.add(name)
+      Activities.add_group(uuid, name)
+
+      response.status = 302
+      response['Location'] = '/'
     else
       response.status = 404
     end
@@ -224,7 +274,7 @@ end
 
 def init_dir(dir)
   log("Initializing directory: #{dir}")
-  %w[tasks activities hosts].each do |subdir|
+  %w[tasks activities hosts groups].each do |subdir|
     path = File.join(dir, subdir)
     Dir.mkdir(path) unless Dir.exist?(path)
   end

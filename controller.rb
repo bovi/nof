@@ -95,6 +95,12 @@ def update_config(state)
           when 'add_host'
             uuid = Hosts.add(activity['opt']['name'], activity['opt']['ip'], with_uuid: activity['opt']['uuid'])
             log("Adding host: #{uuid}")
+          when 'delete_group'
+            Groups.remove(activity['opt']['uuid'])
+            log("Deleting group: #{activity['opt']['uuid']}")
+          when 'add_group'
+            uuid = Groups.add(activity['opt']['name'], with_uuid: activity['opt']['uuid'])
+            log("Adding group: #{uuid}")
           else
             log("Unknown activity: #{activity}")
           end
@@ -122,6 +128,8 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
       json_response(response, Tasks.all)
     elsif request.path == '/hosts.json'
       json_response(response, Hosts.all)
+    elsif request.path == '/groups.json'
+      json_response(response, Groups.all)
     else
       response.status = 404
     end
@@ -146,7 +154,7 @@ end
 
 def init_dir(dir)
   log("Initializing directory: #{dir}")
-  %w[tasks results hosts].each do |subdir|
+  %w[tasks results hosts groups].each do |subdir|
     path = File.join(dir, subdir)
     Dir.mkdir(path) unless Dir.exist?(path)
   end
