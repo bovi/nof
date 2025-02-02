@@ -9,6 +9,7 @@ module DatabaseConfig
 
   def db
     Thread.current[:nof_db] ||= begin
+      log("Using database at: #{db_path}")
       db = SQLite3::Database.new(db_path)
       # Enable WAL mode for better concurrency
       db.execute("PRAGMA journal_mode=WAL")
@@ -96,16 +97,6 @@ class Tasks
         created_at INTEGER DEFAULT (strftime('%s', 'now'))
       )
     SQL
-
-    db.execute(<<-SQL)
-      CREATE TABLE IF NOT EXISTS task_results (
-        id INTEGER PRIMARY KEY,
-        task_uuid TEXT NOT NULL,
-        result TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        FOREIGN KEY (task_uuid) REFERENCES tasks(uuid)
-      )
-    SQL
   end
 
   def self.all
@@ -131,7 +122,6 @@ class Tasks
   end
 
   def self.remove(uuid)
-    db.execute("DELETE FROM task_results WHERE task_uuid = ?", [uuid])
     db.execute("DELETE FROM tasks WHERE uuid = ?", [uuid])
   end
 
@@ -143,9 +133,150 @@ class Tasks
   end
 
   def self.clean!
-    # Delete in correct order due to foreign key constraint
-    db.execute("DELETE FROM task_results")
     db.execute("DELETE FROM tasks")
+  end
+end
+
+class TaskTemplates
+  extend DatabaseConfig
+
+  def self.setup_tables(db)
+    # Drop old task_results table if it exists
+    db.execute("DROP TABLE IF EXISTS task_results")
+
+    db.execute(<<-SQL)
+      CREATE TABLE IF NOT EXISTS task_templates (
+        uuid TEXT PRIMARY KEY,
+        command TEXT NOT NULL,
+        schedule INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    SQL
+
+    db.execute(<<-SQL)
+      CREATE TABLE IF NOT EXISTS task_template_groups (
+        task_template_uuid TEXT NOT NULL,
+        group_uuid TEXT NOT NULL,
+        PRIMARY KEY (task_template_uuid, group_uuid),
+        FOREIGN KEY (task_template_uuid) REFERENCES task_templates(uuid),
+        FOREIGN KEY (group_uuid) REFERENCES groups(uuid)
+      )
+    SQL
+
+    db.execute(<<-SQL)
+      CREATE TABLE IF NOT EXISTS task_results (
+        id INTEGER PRIMARY KEY,
+        task_template_uuid TEXT NOT NULL,
+        host_uuid TEXT NOT NULL,
+        result TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        FOREIGN KEY (task_template_uuid) REFERENCES task_templates(uuid),
+        FOREIGN KEY (host_uuid) REFERENCES hosts(uuid)
+      )
+    SQL
+  end
+
+  def self.all
+    templates = []
+    db.execute(<<-SQL) do |row|
+      SELECT t.uuid, t.command, t.schedule, t.type, 
+             GROUP_CONCAT(tg.group_uuid) as group_uuids
+      FROM task_templates t
+      LEFT JOIN task_template_groups tg ON t.uuid = tg.task_template_uuid
+      GROUP BY t.uuid, t.command, t.schedule, t.type
+    SQL
+      templates << {
+        'uuid' => row[0],
+        'command' => row[1],
+        'schedule' => row[2],
+        'type' => row[3],
+        'group_uuids' => row[4] ? row[4].split(',') : []
+      }
+    end
+    templates
+  end
+
+  def self.add(command, schedule, type, group_uuids = [], with_uuid: nil)
+    uuid = with_uuid || SecureRandom.uuid
+    db.transaction do
+      db.execute(
+        "INSERT INTO task_templates (uuid, command, schedule, type) VALUES (?, ?, ?, ?)",
+        [uuid, command, schedule.to_i, type]
+      )
+      
+      # Add group associations
+      group_uuids.each do |group_uuid|
+        db.execute(
+          "INSERT INTO task_template_groups (task_template_uuid, group_uuid) VALUES (?, ?)",
+          [uuid, group_uuid]
+        )
+      end
+    end
+    uuid
+  end
+
+  def self.remove(uuid)
+    db.transaction do
+      db.execute("DELETE FROM task_results WHERE task_template_uuid = ?", [uuid])
+      db.execute("DELETE FROM task_template_groups WHERE task_template_uuid = ?", [uuid])
+      db.execute("DELETE FROM task_templates WHERE uuid = ?", [uuid])
+    end
+  end
+
+  def self.add_result(template_uuid, host_uuid, result, timestamp)
+    db.execute(
+      "INSERT INTO task_results (task_template_uuid, host_uuid, result, timestamp) VALUES (?, ?, ?, ?)",
+      [template_uuid, host_uuid, result, timestamp]
+    )
+  end
+
+  def self.get_tasks_for_host(host_uuid)
+    log("Getting tasks for host: #{host_uuid}")
+    
+    # First, let's verify the exact host_uuid we're querying with
+    log("Exact host_uuid being queried: '#{host_uuid}'")
+    
+    # Let's run each part of the query separately to see where it might be failing
+    host_check = db.execute("SELECT * FROM host_groups WHERE host_uuid = ?", [host_uuid])
+    log("Host groups check: #{host_check.inspect}")
+    
+    template_check = db.execute(
+      "SELECT t.*, tg.group_uuid 
+       FROM task_templates t
+       JOIN task_template_groups tg ON t.uuid = tg.task_template_uuid
+       WHERE tg.group_uuid IN (
+         SELECT group_uuid FROM host_groups WHERE host_uuid = ?
+       )",
+      [host_uuid]
+    )
+    log("Template check: #{template_check.inspect}")
+
+    # Now the full query with detailed logging
+    tasks = db.execute(<<-SQL, [host_uuid]).map do |row|
+      SELECT DISTINCT t.uuid, t.command, t.schedule, t.type
+      FROM task_templates t
+      JOIN task_template_groups tg ON t.uuid = tg.task_template_uuid
+      JOIN host_groups hg ON tg.group_uuid = hg.group_uuid
+      WHERE hg.host_uuid = ?
+    SQL
+      {
+        'uuid' => row[0],
+        'command' => row[1],
+        'schedule' => row[2],
+        'type' => row[3]
+      }
+    end
+    log("Final tasks result: #{tasks.inspect}")
+    tasks
+  end
+
+  def self.clean!
+    db.transaction do
+      db.execute("DELETE FROM task_results")
+      db.execute("DELETE FROM task_template_groups")
+      db.execute("DELETE FROM task_templates")
+    end
   end
 end
 
@@ -158,6 +289,17 @@ class Groups
         uuid TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         created_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    SQL
+
+    # Join table for Hosts and Groups
+    db.execute(<<-SQL)
+      CREATE TABLE IF NOT EXISTS host_groups (
+        host_uuid TEXT NOT NULL,
+        group_uuid TEXT NOT NULL,
+        PRIMARY KEY (host_uuid, group_uuid),
+        FOREIGN KEY (host_uuid) REFERENCES hosts(uuid),
+        FOREIGN KEY (group_uuid) REFERENCES groups(uuid)
       )
     SQL
   end
@@ -189,6 +331,67 @@ class Groups
   def self.clean!
     db.execute("DELETE FROM groups")
   end
+
+  def self.add_host(group_uuid, host_uuid)
+    log("Adding host #{host_uuid} to group #{group_uuid}")
+    db.execute(
+      "INSERT INTO host_groups (group_uuid, host_uuid) VALUES (?, ?)",
+      [group_uuid, host_uuid]
+    )
+  end
+
+  def self.remove_host(group_uuid, host_uuid)
+    db.execute(
+      "DELETE FROM host_groups WHERE group_uuid = ? AND host_uuid = ?",
+      [group_uuid, host_uuid]
+    )
+  end
+
+  def self.add_task_template(group_uuid, template_uuid)
+    db.execute(
+      "INSERT INTO task_template_groups (group_uuid, task_template_uuid) VALUES (?, ?)",
+      [group_uuid, template_uuid]
+    )
+  end
+
+  def self.remove_task_template(group_uuid, template_uuid)
+    db.execute(
+      "DELETE FROM task_template_groups WHERE group_uuid = ? AND task_template_uuid = ?",
+      [group_uuid, template_uuid]
+    )
+  end
+
+  def self.get_groups_for_template(template_uuid)
+    db.execute(
+      "SELECT g.uuid, g.name FROM groups g 
+       JOIN task_template_groups tg ON g.uuid = tg.group_uuid 
+       WHERE tg.task_template_uuid = ?", 
+      [template_uuid]
+    ).map { |row| { 'uuid' => row[0], 'name' => row[1] } }
+  end
+
+  def self.get_groups_for_host(host_uuid)
+    db.execute(
+      "SELECT g.uuid, g.name FROM groups g 
+       JOIN host_groups hg ON g.uuid = hg.group_uuid 
+       WHERE hg.host_uuid = ?", 
+      [host_uuid]
+    ).map { |row| { 'uuid' => row[0], 'name' => row[1] } }
+  end
+
+  def self.get_host_count(group_uuid)
+    db.get_first_value(
+      "SELECT COUNT(*) FROM host_groups WHERE group_uuid = ?", 
+      [group_uuid]
+    )
+  end
+
+  def self.get_template_count(group_uuid)
+    db.get_first_value(
+      "SELECT COUNT(*) FROM task_template_groups WHERE group_uuid = ?", 
+      [group_uuid]
+    )
+  end
 end
 
 class Hosts
@@ -207,13 +410,21 @@ class Hosts
 
   def self.all
     hosts = []
-    db.execute("SELECT uuid, name, ip FROM hosts") do |row|
+    db.execute(<<-SQL) do |row|
+      SELECT h.uuid, h.name, h.ip, GROUP_CONCAT(hg.group_uuid) as group_uuids
+      FROM hosts h
+      LEFT JOIN host_groups hg ON h.uuid = hg.host_uuid
+      GROUP BY h.uuid, h.name, h.ip
+    SQL
+      log("Raw row from database: #{row.inspect}")
       hosts << {
         'uuid' => row[0],
         'name' => row[1],
-        'ip' => row[2]
+        'ip' => row[2],
+        'group_uuids' => row[3] ? row[3].split(',') : []
       }
     end
+    log("Hosts: #{hosts.inspect}")
     hosts
   end
 
@@ -227,7 +438,14 @@ class Hosts
   end
 
   def self.remove(uuid)
-    db.execute("DELETE FROM hosts WHERE uuid = ?", [uuid])
+    db.transaction do
+      # First remove any host_groups associations
+      db.execute("DELETE FROM host_groups WHERE host_uuid = ?", [uuid])
+      # Then remove any task_results associated with this host
+      db.execute("DELETE FROM task_results WHERE host_uuid = ?", [uuid])
+      # Finally remove the host itself
+      db.execute("DELETE FROM hosts WHERE uuid = ?", [uuid])
+    end
   end
 
   def self.clean!
@@ -322,13 +540,55 @@ class Activities
     )
   end
 
+  def self.add_task_template(uuid, command, schedule, type, group_uuids)
+    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    options = { 
+      uuid: uuid, 
+      command: command, 
+      schedule: schedule, 
+      type: type,
+      group_uuids: group_uuids 
+    }
+    db.execute(
+      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
+      [activity_id, Time.now.to_i, 'add_task_template', options.to_json]
+    )
+  end
+
+  def self.delete_task_template(uuid)
+    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    options = { uuid: uuid }
+    db.execute(
+      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
+      [activity_id, Time.now.to_i, 'delete_task_template', options.to_json]
+    )
+  end
+
+  def self.add_host_to_group(host_uuid, group_uuid)
+    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    options = { host_uuid: host_uuid, group_uuid: group_uuid }
+    db.execute(
+      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
+      [activity_id, Time.now.to_i, 'add_host_to_group', options.to_json]
+    )
+  end
+
+  def self.add_template_to_group(template_uuid, group_uuid)
+    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    options = { template_uuid: template_uuid, group_uuid: group_uuid }
+    db.execute(
+      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
+      [activity_id, Time.now.to_i, 'add_template_to_group', options.to_json]
+    )
+  end
+
   def self.clean!
     db.execute("DELETE FROM activities")
   end
 end
 
 def log(message)
-  return if ENV['DISABLE_LOGGING']
+  return if ENV['NOF_LOGGING']&.to_i == 0
   puts "[#{Time.now}] #{message}"
 end
 

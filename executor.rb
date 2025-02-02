@@ -17,16 +17,19 @@ def update_tasks
   uri = URI("http://#{CONTROLLER_HOST}:#{CONTROLLER_PORT}/tasks.json")
   begin
     res = Net::HTTP.get_response(uri)
+    log("Got response: #{res.code}")
+    if res.is_a?(Net::HTTPSuccess)
+      new_tasks = JSON.parse(res.body)
+      log("Received #{new_tasks.length} tasks")
+      update_task_schedules(new_tasks)
+      @tasks = new_tasks
+    else
+      log("Acquiring tasks failed with status: #{res.code}")
+    end
   rescue Errno::ECONNREFUSED
     log("Connection refused")
-    res = nil
-  end
-  if res.is_a?(Net::HTTPSuccess)
-    new_tasks = JSON.parse(res.body)
-    update_task_schedules(new_tasks)
-    @tasks = new_tasks
-  else
-    log("Acquiring tasks failed")
+  rescue => e
+    log("Error getting tasks: #{e.message}")
   end
 end
 
@@ -34,7 +37,11 @@ def report_result(uuid, result)
   log("report_result(#{uuid})")
   uri = URI("http://#{CONTROLLER_HOST}:#{CONTROLLER_PORT}/report")
   request = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/json')
-  request.body = { uuid: uuid, result: result, timestamp: Time.now.to_i }.to_json
+  request.body = { 
+    uuid: uuid,
+    result: result, 
+    timestamp: Time.now.to_i 
+  }.to_json
   begin
     Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(request)
@@ -45,7 +52,9 @@ def report_result(uuid, result)
 end
 
 def update_task_schedules(new_tasks)
+  log("Updating task schedules...")
   new_task_uuids = new_tasks.map { |task| task['uuid'] }
+  log("New task UUIDs: #{new_task_uuids}")
   
   # remove tasks which are no longer scheduled
   @schedule_threads.keys.each do |uuid|
@@ -62,8 +71,9 @@ def update_task_schedules(new_tasks)
     command = task['command'].clone
     schedule = task['schedule'].clone
     type = task['type'].clone
+
     if type == 'shell' && !@schedule_threads[uuid]
-      log("Scheduling task: #{uuid}")
+      log("Scheduling new task: #{uuid} (#{command})")
       @schedule_threads[uuid] = Thread.new do
         loop do
           result = `#{command}`
@@ -73,6 +83,7 @@ def update_task_schedules(new_tasks)
       end
     end
   end
+  log("Current active tasks: #{@schedule_threads.keys}")
 end
 
 def start_executor
