@@ -152,28 +152,29 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
   end
 end
 
-def init_dir(dir)
-  log("Initializing directory: #{dir}")
-  %w[tasks results hosts groups].each do |subdir|
-    path = File.join(dir, subdir)
-    Dir.mkdir(path) unless Dir.exist?(path)
-  end
-end
-
 def start_controller
-  init_dir(CONFIG_DIR)
-
-  Thread.new do
-    loop do
-      update_data
-      sleep UPDATE_DATA_INTERVAL
+  DatabaseConfig.setup_all_tables!
+  
+  update_data_thread = Thread.new do
+    begin
+      loop do
+        update_data
+        sleep UPDATE_DATA_INTERVAL
+      end
+    ensure
+      DatabaseConfig.close_all_connections
     end
   end
-  Thread.new do
-    update_config(:init)
-    loop do
-      sleep UPDATE_CONFIG_INTERVAL
-      update_config(:sync)
+
+  update_config_thread = Thread.new do
+    begin
+      update_config(:init)
+      loop do
+        sleep UPDATE_CONFIG_INTERVAL
+        update_config(:sync)
+      end
+    ensure
+      DatabaseConfig.close_all_connections
     end
   end
 
@@ -188,11 +189,17 @@ def start_controller
   server = WEBrick::HTTPServer.new(server_config)
   server.mount '/', ControllerServlet
 
-  server
+  # Return both server and threads for cleanup
+  [server, update_data_thread, update_config_thread]
 end
 
 if __FILE__ == $0
-  s = start_controller
-  trap('INT') { s.shutdown }
-  s.start
+  server, update_data_thread, update_config_thread = start_controller
+  trap('INT') do 
+    update_data_thread.kill
+    update_config_thread.kill
+    DatabaseConfig.close_all_connections
+    server.shutdown
+  end
+  server.start
 end

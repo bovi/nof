@@ -272,18 +272,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
   end
 end
 
-def init_dir(dir)
-  log("Initializing directory: #{dir}")
-  %w[tasks activities hosts groups].each do |subdir|
-    path = File.join(dir, subdir)
-    Dir.mkdir(path) unless Dir.exist?(path)
-  end
-  Dashboard.state = :init
-end
-
 def start_dashboard
-  init_dir(CONFIG_DIR)
-  
   server_config = { Port: DASHBOARD_PORT }
   if ENV['DISABLE_LOGGING']
     server_config.merge!(
@@ -292,15 +281,19 @@ def start_dashboard
     )
   end
   
+  DatabaseConfig.setup_all_tables!
   server = WEBrick::HTTPServer.new(server_config)
   server.mount '/', DashboardServlet
   server
 end
 
 if __FILE__ == $0
-  s = start_dashboard
-  trap('INT') { s.shutdown }
-  s.start
+  server = start_dashboard
+  trap('INT') do
+    DatabaseConfig.close_all_connections
+    server.shutdown
+  end
+  server.start
 end
 
 
