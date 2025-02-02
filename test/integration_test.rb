@@ -11,6 +11,9 @@ class IntegrationTest < Minitest::Test
   TEST_DIR = File.expand_path('../tmp/test', __dir__)
   CONTROLLER_DIR = File.join(TEST_DIR, 'controller')
   DASHBOARD_DIR = File.join(TEST_DIR, 'dashboard')
+  
+  TEST_HOST = 'test-host'
+  TEST_IP = '192.168.1.100'
 
   def setup
     # Create test directories
@@ -22,7 +25,9 @@ class IntegrationTest < Minitest::Test
     ENV['DISABLE_LOGGING'] = '1'
     ENV['CONTROLLER_CONFIG_DIR'] = CONTROLLER_DIR
     ENV['DASHBOARD_CONFIG_DIR'] = DASHBOARD_DIR
-    
+    ENV['CONTROLLER_UPDATE_DATA_INTERVAL'] = '2'
+    ENV['CONTROLLER_UPDATE_CONFIG_INTERVAL'] = '2'
+
     # Start all components
     @dashboard_pid = spawn('ruby', 'dashboard.rb')
     @controller_pid = spawn('ruby', 'controller.rb')
@@ -52,5 +57,36 @@ class IntegrationTest < Minitest::Test
     # All components should have the same version
     assert_equal Controller::VERSION, controller_version
     assert_equal Dashboard::VERSION, dashboard_version
+  end
+
+  def test_create_host
+    test_host = 'test-host'
+    test_ip = '192.168.1.100'
+
+    # Create a new host via POST request
+    uri = URI("http://localhost:#{Dashboard::DEFAULT_PORT}/config/hosts/add")
+    data = URI.encode_www_form({
+      'name' => test_host,
+      'ip' => test_ip
+    })
+    response = Net::HTTP.post(uri, data)
+    
+    # Verify redirect response
+    assert_equal 302, response.code.to_i
+    
+    # Get the dashboard page and verify the host is listed
+    dashboard_response = Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/"))
+    assert_includes dashboard_response, test_host
+    assert_includes dashboard_response, test_ip
+
+    # wait a moment until the controller syncs the host
+    sleep 2
+
+    # Get the controller page and verify the host is listed
+    controller_response = Net::HTTP.get(URI("http://localhost:#{Controller::DEFAULT_PORT}/hosts.json"))
+    hosts = JSON.parse(controller_response)
+    assert_equal 1, hosts.length
+    assert_equal test_host, hosts[0]['name']
+    assert_equal test_ip, hosts[0]['ip']
   end
 end 
