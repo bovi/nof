@@ -1,6 +1,8 @@
 require 'securerandom'
 require 'json'
 
+require_relative 'response_helper'
+
 class Dashboard
   VERSION = '0.1'
   DEFAULT_PORT = 1080

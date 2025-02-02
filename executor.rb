@@ -2,7 +2,7 @@ require 'json'
 require 'net/http'
 require 'thread'
 
-require_relative 'lib'
+require_relative 'lib/nof'
 
 CONTROLLER_HOST = ENV['CONTROLLER_HOST'] || 'localhost'
 CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || Controller::DEFAULT_PORT

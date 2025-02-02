@@ -4,8 +4,7 @@ require 'json'
 require 'fileutils'
 require 'tmpdir'
 
-require_relative '../lib'
-
+require_relative '../lib/nof'
 
 class IntegrationTest < Minitest::Test
   TEST_DIR = File.expand_path('../tmp/test', __dir__)
@@ -14,6 +13,8 @@ class IntegrationTest < Minitest::Test
   
   TEST_HOST = 'test-host'
   TEST_IP = '192.168.1.100'
+
+  SYNC_INTERVAL = 2
 
   def setup
     # Create test directories
@@ -25,8 +26,8 @@ class IntegrationTest < Minitest::Test
     ENV['DISABLE_LOGGING'] = '1'
     ENV['CONTROLLER_CONFIG_DIR'] = CONTROLLER_DIR
     ENV['DASHBOARD_CONFIG_DIR'] = DASHBOARD_DIR
-    ENV['CONTROLLER_UPDATE_DATA_INTERVAL'] = '2'
-    ENV['CONTROLLER_UPDATE_CONFIG_INTERVAL'] = '2'
+    ENV['CONTROLLER_UPDATE_DATA_INTERVAL'] = SYNC_INTERVAL.to_s
+    ENV['CONTROLLER_UPDATE_CONFIG_INTERVAL'] = SYNC_INTERVAL.to_s
 
     # Start all components
     @dashboard_pid = spawn('ruby', 'dashboard.rb')
@@ -43,7 +44,7 @@ class IntegrationTest < Minitest::Test
     Process.kill('INT', @controller_pid)
     Process.kill('INT', @executor_pid)
 
-    sleep 2
+    sleep 5
     
     # Clean up test directories
     FileUtils.rm_rf(TEST_DIR)
@@ -83,7 +84,7 @@ class IntegrationTest < Minitest::Test
     assert_equal Dashboard::VERSION, dashboard_version
   end
 
-  def test_create_host
+  def test_host_mgmt
     test_host = 'test-host'
     test_ip = '192.168.1.100'
 
@@ -99,12 +100,29 @@ class IntegrationTest < Minitest::Test
     assert_includes dashboard_response, test_ip
 
     # wait a moment until the controller syncs the host
-    sleep 2
+    sleep SYNC_INTERVAL + 1
 
     # Get the controller page and verify the host is listed
     hosts = get_controller('/hosts.json')
     assert_equal 1, hosts.length
     assert_equal test_host, hosts[0]['name']
     assert_equal test_ip, hosts[0]['ip']
+
+    # Delete the host via POST request
+    post_dashboard('/config/hosts/delete', {
+      'uuid' => hosts[0]['uuid']
+    })
+
+    # Get the dashboard page and verify the host is no longer listed
+    dashboard_response = Net::HTTP.get(URI("http://localhost:#{Dashboard::DEFAULT_PORT}/"))
+    refute_includes dashboard_response, test_host
+    refute_includes dashboard_response, test_ip
+
+    # wait a moment until the controller syncs the host
+    sleep SYNC_INTERVAL + 1
+
+    # Get the controller page and verify the host is no longer listed
+    hosts = get_controller('/hosts.json')
+    assert_equal 0, hosts.length
   end
 end 

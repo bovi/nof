@@ -3,8 +3,7 @@ require 'json'
 require 'net/http'
 require 'thread'
 
-require_relative 'lib'
-require_relative 'lib/response_helper'
+require_relative 'lib/nof'
 
 CONTROLLER_CONFIG_DIR = ENV['CONTROLLER_CONFIG_DIR'] || Dir.mktmpdir
 DASHBOARD_PORT = ENV['DASHBOARD_PORT']&.to_i || Dashboard::DEFAULT_PORT
