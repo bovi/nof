@@ -91,6 +91,14 @@ class IntegrationTest < Minitest::Test
   end
 
   def test_ux
+    # check if controller has the same data
+    controller_groups = get_controller('/groups.json')
+    assert_equal 0, controller_groups.length
+    controller_hosts = get_controller('/hosts.json')
+    assert_equal 0, controller_hosts.length
+    controller_tasks = get_controller('/tasks.json')
+    assert_equal 0, controller_tasks.length
+
     # INITIAL STATE
     groups = get_dashboard('/groups.json')
     assert_equal 0, groups.length
@@ -142,6 +150,26 @@ class IntegrationTest < Minitest::Test
     assert_includes dashboard_index, TEST_IP
     assert_includes dashboard_index, TEST_TYPE
 
+    # wait for sync
+    sleep SYNC_INTERVAL + 1
+
+    # check if controller has the same data
+    controller_groups = get_controller('/groups.json')
+    assert_equal 1, controller_groups.length
+    assert_equal TEST_GROUP, controller_groups[0]['name']
+
+    controller_hosts = get_controller('/hosts.json')
+    assert_equal 1, controller_hosts.length
+    assert_equal TEST_HOST, controller_hosts[0]['name']
+    assert_equal TEST_IP, controller_hosts[0]['ip']
+    assert_equal [groups[0]['uuid']], controller_hosts[0]['group_uuids'] 
+
+    controller_tasks = get_controller('/tasks.json')
+    assert_equal 1, controller_tasks.length
+    assert_equal TEST_COMMAND, controller_tasks[0]['command']
+    assert_equal TEST_SCHEDULE.to_i, controller_tasks[0]['schedule']
+    assert_equal TEST_TYPE, controller_tasks[0]['type']
+
     # DELETE TASK TEMPLATE
     post_dashboard('/config/task_templates/delete', {
       'uuid' => task_templates[0]['uuid']
@@ -170,6 +198,17 @@ class IntegrationTest < Minitest::Test
     refute_includes dashboard_index, TEST_HOST
     refute_includes dashboard_index, TEST_IP
     refute_includes dashboard_index, TEST_TYPE
+
+    # wait for sync
+    sleep SYNC_INTERVAL + 1
+
+    # check if controller has the same data
+    controller_groups = get_controller('/groups.json')
+    assert_equal 0, controller_groups.length
+    controller_hosts = get_controller('/hosts.json')
+    assert_equal 0, controller_hosts.length
+    controller_tasks = get_controller('/tasks.json')
+    assert_equal 0, controller_tasks.length
   end
 
   def test_ux_delete_group
