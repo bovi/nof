@@ -232,27 +232,6 @@ class TaskTemplates
   end
 
   def self.get_tasks_for_host(host_uuid)
-    log("Getting tasks for host: #{host_uuid}")
-    
-    # First, let's verify the exact host_uuid we're querying with
-    log("Exact host_uuid being queried: '#{host_uuid}'")
-    
-    # Let's run each part of the query separately to see where it might be failing
-    host_check = db.execute("SELECT * FROM host_groups WHERE host_uuid = ?", [host_uuid])
-    log("Host groups check: #{host_check.inspect}")
-    
-    template_check = db.execute(
-      "SELECT t.*, tg.group_uuid 
-       FROM task_templates t
-       JOIN task_template_groups tg ON t.uuid = tg.task_template_uuid
-       WHERE tg.group_uuid IN (
-         SELECT group_uuid FROM host_groups WHERE host_uuid = ?
-       )",
-      [host_uuid]
-    )
-    log("Template check: #{template_check.inspect}")
-
-    # Now the full query with detailed logging
     tasks = db.execute(<<-SQL, [host_uuid]).map do |row|
       SELECT DISTINCT t.uuid, t.command, t.schedule, t.type
       FROM task_templates t
@@ -267,7 +246,6 @@ class TaskTemplates
         'type' => row[3]
       }
     end
-    log("Final tasks result: #{tasks.inspect}")
     tasks
   end
 
@@ -339,7 +317,6 @@ class Groups
   end
 
   def self.add_host(group_uuid, host_uuid)
-    log("Adding host #{host_uuid} to group #{group_uuid}")
     db.execute(
       "INSERT INTO host_groups (group_uuid, host_uuid) VALUES (?, ?)",
       [group_uuid, host_uuid]
@@ -417,12 +394,11 @@ class Hosts
   def self.all
     hosts = []
     db.execute(<<-SQL) do |row|
-      SELECT h.uuid, h.name, h.ip, GROUP_CONCAT(hg.group_uuid) as group_uuids
-      FROM hosts h
-      LEFT JOIN host_groups hg ON h.uuid = hg.host_uuid
-      GROUP BY h.uuid, h.name, h.ip
-    SQL
-      log("Raw row from database: #{row.inspect}")
+        SELECT h.uuid, h.name, h.ip, GROUP_CONCAT(hg.group_uuid) as group_uuids
+        FROM hosts h
+        LEFT JOIN host_groups hg ON h.uuid = hg.host_uuid
+        GROUP BY h.uuid, h.name, h.ip
+      SQL
       hosts << {
         'uuid' => row[0],
         'name' => row[1],
@@ -430,7 +406,6 @@ class Hosts
         'group_uuids' => row[3] ? row[3].split(',') : []
       }
     end
-    log("Hosts: #{hosts.inspect}")
     hosts
   end
 
@@ -445,11 +420,8 @@ class Hosts
 
   def self.remove(uuid)
     db.transaction do
-      # First remove any host_groups associations
       db.execute("DELETE FROM host_groups WHERE host_uuid = ?", [uuid])
-      # Then remove any task_results associated with this host
       db.execute("DELETE FROM task_results WHERE host_uuid = ?", [uuid])
-      # Finally remove the host itself
       db.execute("DELETE FROM hosts WHERE uuid = ?", [uuid])
     end
   end
@@ -597,9 +569,35 @@ class Activities
   end
 end
 
+# Logging depends on the NOF_LOGGING environment variable
+# 0 - no logging
+# 1 - error only
+# 2 - error and warning
+# 3 - error, warning and log
+# 4 - error, warning, log and debug
+
+def log?(lvl)
+  ENV['NOF_LOGGING']&.to_i < lvl
+end
+
+def p(state, msg)
+  puts "[#{Time.now}] #{state}: #{msg}"
+end
+
+def debug(message)
+  p('DEBUG', message) unless log?(4)
+end
+
 def log(message)
-  return if ENV['NOF_LOGGING']&.to_i == 0
-  puts "[#{Time.now}] #{message}"
+  p('LOG', message) unless log?(3)
+end
+
+def err(message)
+  p('ERROR', message) unless log?(2)
+end
+
+def fatal(message)
+  p('FATAL', message) unless log?(1)
 end
 
 module ResponseHelper

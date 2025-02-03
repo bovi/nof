@@ -49,12 +49,12 @@ def update_data
     response = http.request(request)
 
     unless response.is_a?(Net::HTTPSuccess)
-      log("Failed to update dashboard: #{response.code} #{response.message}")
+      err("Failed to update dashboard: #{response.code} #{response.message}")
     else
       $controller_updates.clean!
     end
   rescue Errno::ECONNREFUSED
-    log("Connection to dashboard refused")
+    err("Connection to dashboard refused")
   end
 end
 
@@ -68,6 +68,7 @@ def update_config(state)
     elsif state == :sync
       request.body = { type: 'sync' }.to_json
     else
+      fatal("Invalid state: #{state}")
       raise ArgumentError, "Invalid state: #{state}"
     end
 
@@ -76,21 +77,21 @@ def update_config(state)
     if response.is_a?(Net::HTTPSuccess)
       ret = JSON.parse(response.body)
       if ret['message'] == 'ok'
-        log("Updated dashboard config")
+        debug("Updated dashboard config")
       elsif ret['message'] == 'already init'
-        log("Dashboard already initialized")
+        debug("Dashboard already initialized")
       elsif ret['message'] == 'sync'
-        log("Synced dashboard activities")
+        debug("Synced dashboard activities")
         
         # First pass: Create/delete base entities
         ret['activities'].each do |activity|
           case activity['type']
           when 'add_host'
             uuid = Hosts.add(activity['opt']['name'], activity['opt']['ip'], with_uuid: activity['opt']['uuid'])
-            log("Adding host: #{uuid}")
+            debug("Adding host: #{uuid}")
           when 'add_group'
             uuid = Groups.add(activity['opt']['name'], with_uuid: activity['opt']['uuid'])
-            log("Adding group: #{uuid}")
+            debug("Adding group: #{uuid}")
           when 'add_task_template'
             uuid = TaskTemplates.add(
               activity['opt']['command'],
@@ -99,16 +100,16 @@ def update_config(state)
               activity['opt']['group_uuids'],
               with_uuid: activity['opt']['uuid']
             )
-            log("Adding task template: #{uuid}")
+            debug("Adding task template: #{uuid}")
           when 'delete_host'
             Hosts.remove(activity['opt']['uuid'])
-            log("Deleting host: #{activity['opt']['uuid']}")
+            debug("Deleting host: #{activity['opt']['uuid']}")
           when 'delete_group'
             Groups.remove(activity['opt']['uuid'])
-            log("Deleting group: #{activity['opt']['uuid']}")
+            debug("Deleting group: #{activity['opt']['uuid']}")
           when 'delete_task_template'
             TaskTemplates.remove(activity['opt']['uuid'])
-            log("Deleting task template: #{activity['opt']['uuid']}")
+            debug("Deleting task template: #{activity['opt']['uuid']}")
           end
         end
 
@@ -121,9 +122,9 @@ def update_config(state)
                 activity['opt']['group_uuid'],
                 activity['opt']['host_uuid']
               )
-              log("Adding host #{activity['opt']['host_uuid']} to group #{activity['opt']['group_uuid']}")
+              debug("Adding host #{activity['opt']['host_uuid']} to group #{activity['opt']['group_uuid']}")
             rescue SQLite3::ConstraintException => e
-              log("Failed to add host to group: #{e.message}")
+              err("Failed to add host to group: #{e.message}")
             end
           when 'add_template_to_group'
             begin
@@ -131,22 +132,22 @@ def update_config(state)
                 activity['opt']['group_uuid'],
                 activity['opt']['template_uuid']
               )
-              log("Adding template #{activity['opt']['template_uuid']} to group #{activity['opt']['group_uuid']}")
+              debug("Adding template #{activity['opt']['template_uuid']} to group #{activity['opt']['group_uuid']}")
             rescue SQLite3::ConstraintException => e
-              log("Failed to add template to group: #{e.message}")
+              err("Failed to add template to group: #{e.message}")
             end
           end
         end
       elsif ret['message'] == 'nothing to sync'
-        log("Nothing to sync")
+        debug("Nothing to sync")
       else
-        log("Failed to update dashboard config: #{ret['message']}")
+        err("Failed to update dashboard config: #{ret['message']}")
       end
     else
-      log("Failed to update dashboard config: #{response.code} #{response.message}")
+      err("Failed to update dashboard config: #{response.code} #{response.message}")
     end
   rescue Errno::ECONNREFUSED
-    log("Connection to dashboard refused")
+    err("Connection to dashboard refused")
   end
 end
 
@@ -159,24 +160,27 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
     elsif request.path == '/tasks.json'
       # Expand task templates into specific tasks for each host
       tasks = []
-      log("Getting tasks for all hosts...")
+      debug("Getting tasks for all hosts...")
       
       Hosts.all.each do |host|
-        log("Getting tasks for host: #{host['name']} (#{host['uuid']})")
+        debug("Getting tasks for host: #{host['name']} (#{host['uuid']})")
         host_tasks = TaskTemplates.get_tasks_for_host(host['uuid'])
-        log("Found #{host_tasks.length} tasks for host #{host['name']}")
+        debug("Found #{host_tasks.length} tasks for host #{host['name']}")
         
         host_tasks.each do |task|
+          # Replace $IP with the host's IP address in the command
+          command = task['command'].gsub('$IP', host['ip'])
+          
           tasks << {
             'uuid' => "#{task['uuid']}_#{host['uuid']}", # Combine template and host UUIDs
-            'command' => task['command'],
+            'command' => command,
             'schedule' => task['schedule'],
             'type' => task['type']
           }
         end
       end
       
-      log("Returning #{tasks.length} total tasks")
+      debug("Returning #{tasks.length} total tasks")
       json_response(response, tasks)
     elsif request.path == '/hosts.json'
       json_response(response, Hosts.all)
@@ -202,7 +206,8 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
       # check if host still exists
       host = Hosts.get(host_uuid)
       if host.nil?
-        log("Host #{host_uuid} not found, skipping task #{template_uuid}")
+        # this might happen if the host was deleted while the task was running
+        debug("Host #{host_uuid} not found, skipping task #{template_uuid}")
         response.body = { message: "host not found" }.to_json
         return
       end
@@ -210,7 +215,8 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
       # check if template still exists
       template = TaskTemplates.get(template_uuid)
       if template.nil?
-        log("Template #{template_uuid} not found, skipping task #{template_uuid}")
+        # this might happen if the template was deleted while the task was running
+        err("Template #{template_uuid} not found, skipping task #{template_uuid}")
         response.body = { message: "template not found" }.to_json
         return
       end
@@ -225,7 +231,7 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
 end
 
 def start_controller
-  log("Controller CONFIG_DIR: #{CONFIG_DIR}")
+  debug("Controller CONFIG_DIR: #{CONFIG_DIR}")
   DatabaseConfig.setup_all_tables!
   
   update_data_thread = Thread.new do
@@ -252,7 +258,7 @@ def start_controller
   end
 
   server_config = { Port: CONTROLLER_PORT }
-  if ENV['NOF_LOGGING']&.to_i == 0
+  if log?(3)
     server_config.merge!(
       Logger: WEBrick::Log.new(File::NULL),
       AccessLog: []

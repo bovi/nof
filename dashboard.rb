@@ -249,7 +249,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         type = data['type'] || ''
         if type == 'init'
           if Dashboard.state == :init
-            log("re-initializing dashboard")
+            debug("re-initializing dashboard")
           end
 
           TaskTemplates.clean!
@@ -276,7 +276,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
 
       when '/config/task_templates/add'
         data = URI.decode_www_form(request.body).to_h
-        log("Adding task template with data: #{data.inspect}")
+        debug("Adding task template with data: #{data.inspect}")
         command = data['command']
         schedule = data['schedule']
         type = data['type']
@@ -305,7 +305,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         name = data['name']
         ip = data['ip']
         group_uuids = data['group_uuids'].is_a?(Array) ? data['group_uuids'] : [data['group_uuids']].compact
-        log("Group uuids: #{group_uuids.inspect}")
+        debug("Group uuids: #{group_uuids.inspect}")
 
         uuid = Hosts.add(name, ip)
         group_uuids.each do |group_uuid|
@@ -333,7 +333,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         data = URI.decode_www_form(request.body).to_h
         name = data['name']
 
-        log("Adding group with name: #{name}")
+        debug("Adding group with name: #{name}")
 
         uuid = Groups.add(name)
         Activities.add_group(uuid, name)
@@ -345,7 +345,7 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         Groups.remove(uuid)
         Activities.delete_group(uuid)
       else
-        log("Unknown path: #{request.path}")
+        err("Unknown path: #{request.path}")
         response.status = 404
       end
 
@@ -355,8 +355,8 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         response['Location'] = '/'
       end
     rescue => e
-      log("Error in do_POST: #{e.class}: #{e.message}")
-      log(e.backtrace.join("\n"))
+      err("Error in do_POST: #{e.class}: #{e.message}")
+      err(e.backtrace.join("\n"))
       response.status = 500
       response.body = "Internal Server Error: #{e.message}"
     end
@@ -365,14 +365,14 @@ end
 
 def start_dashboard
   server_config = { Port: DASHBOARD_PORT }
-  if ENV['NOF_LOGGING']&.to_i == 0
+  if log?(3)
     server_config.merge!(
       Logger: WEBrick::Log.new(File::NULL),
       AccessLog: []
     )
   end
   
-  log("Dashboard CONFIG_DIR: #{CONFIG_DIR}")
+  debug("Dashboard CONFIG_DIR: #{CONFIG_DIR}")
   DatabaseConfig.setup_all_tables!
   server = WEBrick::HTTPServer.new(server_config)
   server.mount '/', DashboardServlet

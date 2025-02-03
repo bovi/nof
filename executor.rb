@@ -13,28 +13,28 @@ UPDATE_TASK_INTERVAL = 10
 @schedule_threads = {}
 
 def update_tasks
-  log("update_tasks()")
+  debug("update_tasks()")
   uri = URI("http://#{CONTROLLER_HOST}:#{CONTROLLER_PORT}/tasks.json")
   begin
     res = Net::HTTP.get_response(uri)
-    log("Got response: #{res.code}")
+    debug("Got response: #{res.code}")
     if res.is_a?(Net::HTTPSuccess)
       new_tasks = JSON.parse(res.body)
-      log("Received #{new_tasks.length} tasks")
+      debug("Received #{new_tasks.length} tasks")
       update_task_schedules(new_tasks)
       @tasks = new_tasks
     else
-      log("Acquiring tasks failed with status: #{res.code}")
+      err("Acquiring tasks failed with status: #{res.code}")
     end
   rescue Errno::ECONNREFUSED
-    log("Connection refused")
+    err("Connection refused")
   rescue => e
-    log("Error getting tasks: #{e.message}")
+    err("Error getting tasks: #{e.message}")
   end
 end
 
 def report_result(uuid, result)
-  log("report_result(#{uuid})")
+  debug("report_result(#{uuid})")
   uri = URI("http://#{CONTROLLER_HOST}:#{CONTROLLER_PORT}/report")
   request = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/json')
   request.body = { 
@@ -47,19 +47,19 @@ def report_result(uuid, result)
       http.request(request)
     end
   rescue Errno::ECONNREFUSED
-    log("Connection refused while reporting result")
+    err("Connection refused while reporting result")
   end
 end
 
 def update_task_schedules(new_tasks)
-  log("Updating task schedules...")
+  debug("Updating task schedules...")
   new_task_uuids = new_tasks.map { |task| task['uuid'] }
-  log("New task UUIDs: #{new_task_uuids}")
+  debug("New task UUIDs: #{new_task_uuids}")
   
   # remove tasks which are no longer scheduled
   @schedule_threads.keys.each do |uuid|
     unless new_task_uuids.include?(uuid)
-      log("Removing task: #{uuid}")
+      debug("Removing task: #{uuid}")
       @schedule_threads[uuid].kill
       @schedule_threads.delete(uuid)
     end
@@ -73,7 +73,7 @@ def update_task_schedules(new_tasks)
     type = task['type'].clone
 
     if type == 'shell' && !@schedule_threads[uuid]
-      log("Scheduling new task: #{uuid} (#{command})")
+      debug("Scheduling new shell task: #{uuid} (#{command})")
       @schedule_threads[uuid] = Thread.new do
         loop do
           result = `#{command}`
@@ -83,7 +83,7 @@ def update_task_schedules(new_tasks)
       end
     end
   end
-  log("Current active tasks: #{@schedule_threads.keys}")
+  debug("Current active tasks: #{@schedule_threads.keys}")
 end
 
 def start_executor
