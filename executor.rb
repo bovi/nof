@@ -7,7 +7,7 @@ require_relative 'lib/nof'
 CONTROLLER_HOST = ENV['CONTROLLER_HOST'] || 'localhost'
 CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || Controller::DEFAULT_PORT
 
-UPDATE_TASK_INTERVAL = 10
+UPDATE_TASK_INTERVAL = ENV['EXECUTOR_UPDATE_TASK_INTERVAL']&.to_i || 10
 
 @tasks = []
 @schedule_threads = {}
@@ -51,6 +51,36 @@ def report_result(uuid, result)
   end
 end
 
+def format_result(result, formatter_pattern, formatter_template)
+  return result unless formatter_pattern && formatter_template
+
+  begin
+    # Extract data using the pattern with multiline mode
+    matches = result.match(/#{formatter_pattern}/m)
+    debug("Result: #{result}")
+    debug("Formatter pattern: #{formatter_pattern}")
+    debug("Matches: #{matches}")
+    return result unless matches
+    
+    # Create a hash with named capture groups
+    data = matches.named_captures
+    
+    # Apply the template
+    formatted = formatter_template.clone
+    data.each do |key, value|
+      formatted.gsub!("%{#{key}}", value)
+    end
+    
+    formatted
+  rescue RegexpError => e
+    err("Invalid formatter pattern: #{e.message}")
+    result
+  rescue => e
+    err("Error formatting result: #{e.message}")
+    result
+  end
+end
+
 def update_task_schedules(new_tasks)
   debug("Updating task schedules...")
   new_task_uuids = new_tasks.map { |task| task['uuid'] }
@@ -71,13 +101,16 @@ def update_task_schedules(new_tasks)
     command = task['command'].clone
     schedule = task['schedule'].clone
     type = task['type'].clone
+    formatter_pattern = task['formatter_pattern']&.clone
+    formatter_template = task['formatter_template']&.clone
 
     if type == 'shell' && !@schedule_threads[uuid]
-      debug("Scheduling new shell task: #{uuid} (#{command})")
+      debug("Scheduling new shell task: #{uuid} (#{command}) '#{formatter_pattern}' '#{formatter_template}'")
       @schedule_threads[uuid] = Thread.new do
         loop do
-          result = `#{command}`
-          report_result(uuid, result)
+          raw_result = `#{command}`
+          formatted_result = format_result(raw_result, formatter_pattern, formatter_template)
+          report_result(uuid, formatted_result)
           sleep schedule.to_i
         end
       end

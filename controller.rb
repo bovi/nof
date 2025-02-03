@@ -93,11 +93,16 @@ def update_config(state)
             uuid = Groups.add(activity['opt']['name'], with_uuid: activity['opt']['uuid'])
             debug("Adding group: #{uuid}")
           when 'add_task_template'
+            formatter = {
+              pattern: activity['opt']['formatter_pattern'],
+              template: activity['opt']['formatter_template']
+            }
             uuid = TaskTemplates.add(
               activity['opt']['command'],
               activity['opt']['schedule'],
               activity['opt']['type'],
               activity['opt']['group_uuids'],
+              formatter: formatter,
               with_uuid: activity['opt']['uuid']
             )
             debug("Adding task template: #{uuid}")
@@ -175,7 +180,9 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
             'uuid' => "#{task['uuid']}_#{host['uuid']}", # Combine template and host UUIDs
             'command' => command,
             'schedule' => task['schedule'],
-            'type' => task['type']
+            'type' => task['type'],
+            'formatter_pattern' => task['formatter_pattern'],
+            'formatter_template' => task['formatter_template']
           }
         end
       end

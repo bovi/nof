@@ -39,9 +39,11 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
 
       # Task Templates section
       task_templates = TaskTemplates.all.map do |template|
-        # Get groups for this template
         template_groups = Groups.get_groups_for_template(template['uuid'])
         group_list = template_groups.map { |g| g['name'] }.join(', ')
+        
+        # Escape HTML special characters in formatter pattern
+        formatter_pattern = template['formatter_pattern']&.gsub('<', '&lt;')&.gsub('>', '&gt;')
         
         <<-HTML
           <tr>
@@ -49,6 +51,8 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
             <td>#{template['command']}</td>
             <td>#{template['schedule']}</td>
             <td>#{template['type']}</td>
+            <td>#{formatter_pattern}</td>
+            <td>#{template['formatter_template']}</td>
             <td>#{group_list}</td>
             <td>
               <form action="/config/task_templates/add_group" method="post" style="display: inline;">
@@ -158,6 +162,14 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
                   <td><input type="text" name="schedule" placeholder="Schedule" required></td>
                   <td><input type="text" name="type" placeholder="Type" required></td>
                   <td>
+                    <textarea name="formatter_pattern" placeholder="Formatter Pattern (regex with named captures)"
+                      rows="3" style="width: 100%"></textarea>
+                  </td>
+                  <td>
+                    <textarea name="formatter_template" placeholder="Formatter Template (use %{name} for captures)"
+                      rows="3" style="width: 100%"></textarea>
+                  </td>
+                  <td>
                     <select name="group_uuids" multiple>
                       #{groups_options}
                     </select>
@@ -172,11 +184,21 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
                 <th>Command</th>
                 <th>Schedule</th>
                 <th>Type</th>
+                <th>Formatter Pattern</th>
+                <th>Formatter Template</th>
                 <th>Groups</th>
                 <th>Actions</th>
               </tr>
               #{task_templates}
             </table>
+
+            <div class="help-section">
+              <h3>Formatter Help</h3>
+              <p>Pattern Example (for ping):</p>
+              <pre>(?<loss>\d+)% packet loss.*rtt min\/avg\/max\/mdev = (?<min>[\d.]+)\/(?<avg>[\d.]+)\/(?<max>[\d.]+)\/(?<mdev>[\d.]+)</pre>
+              <p>Template Example:</p>
+              <pre>{"packet_loss": %{loss}, "min": %{min}, "avg": %{avg}, "max": %{max}, "mdev": %{mdev}}</pre>
+            </div>
 
             <h2>Hosts</h2>
             <form action="/config/hosts/add" method="post">
@@ -281,9 +303,13 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         schedule = data['schedule']
         type = data['type']
         group_uuids = data['group_uuids'].is_a?(Array) ? data['group_uuids'] : [data['group_uuids']].compact
+        formatter = {
+          pattern: data['formatter_pattern'],
+          template: data['formatter_template']
+        }
 
-        uuid = TaskTemplates.add(command, schedule, type, group_uuids)
-        Activities.add_task_template(uuid, command, schedule, type, group_uuids)
+        uuid = TaskTemplates.add(command, schedule, type, group_uuids, formatter: formatter)
+        Activities.add_task_template(uuid, command, schedule, type, group_uuids, formatter)
 
       when '/config/task_templates/add_group'
         data = URI.decode_www_form(request.body).to_h

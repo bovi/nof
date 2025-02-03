@@ -150,6 +150,8 @@ class TaskTemplates
         command TEXT NOT NULL,
         schedule INTEGER NOT NULL,
         type TEXT NOT NULL,
+        formatter_pattern TEXT,
+        formatter_template TEXT,
         created_at INTEGER DEFAULT (strftime('%s', 'now'))
       )
     SQL
@@ -181,28 +183,31 @@ class TaskTemplates
     templates = []
     db.execute(<<-SQL) do |row|
       SELECT t.uuid, t.command, t.schedule, t.type, 
+             t.formatter_pattern, t.formatter_template,
              GROUP_CONCAT(tg.group_uuid) as group_uuids
       FROM task_templates t
       LEFT JOIN task_template_groups tg ON t.uuid = tg.task_template_uuid
-      GROUP BY t.uuid, t.command, t.schedule, t.type
+      GROUP BY t.uuid, t.command, t.schedule, t.type, t.formatter_pattern, t.formatter_template
     SQL
       templates << {
         'uuid' => row[0],
         'command' => row[1],
         'schedule' => row[2],
         'type' => row[3],
-        'group_uuids' => row[4] ? row[4].split(',') : []
+        'formatter_pattern' => row[4],
+        'formatter_template' => row[5],
+        'group_uuids' => row[6] ? row[6].split(',') : []
       }
     end
     templates
   end
 
-  def self.add(command, schedule, type, group_uuids = [], with_uuid: nil)
+  def self.add(command, schedule, type, group_uuids = [], formatter: nil, with_uuid: nil)
     uuid = with_uuid || SecureRandom.uuid
     db.transaction do
       db.execute(
-        "INSERT INTO task_templates (uuid, command, schedule, type) VALUES (?, ?, ?, ?)",
-        [uuid, command, schedule.to_i, type]
+        "INSERT INTO task_templates (uuid, command, schedule, type, formatter_pattern, formatter_template) VALUES (?, ?, ?, ?, ?, ?)",
+        [uuid, command, schedule.to_i, type, formatter[:pattern], formatter[:template]]
       )
       
       # Add group associations
@@ -233,7 +238,7 @@ class TaskTemplates
 
   def self.get_tasks_for_host(host_uuid)
     tasks = db.execute(<<-SQL, [host_uuid]).map do |row|
-      SELECT DISTINCT t.uuid, t.command, t.schedule, t.type
+      SELECT DISTINCT t.uuid, t.command, t.schedule, t.type, t.formatter_pattern, t.formatter_template
       FROM task_templates t
       JOIN task_template_groups tg ON t.uuid = tg.task_template_uuid
       JOIN host_groups hg ON tg.group_uuid = hg.group_uuid
@@ -243,7 +248,9 @@ class TaskTemplates
         'uuid' => row[0],
         'command' => row[1],
         'schedule' => row[2],
-        'type' => row[3]
+        'type' => row[3],
+        'formatter_pattern' => row[4],
+        'formatter_template' => row[5]
       }
     end
     tasks
@@ -522,14 +529,16 @@ class Activities
     )
   end
 
-  def self.add_task_template(uuid, command, schedule, type, group_uuids)
+  def self.add_task_template(uuid, command, schedule, type, group_uuids, formatter)
     activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
     options = { 
       uuid: uuid, 
       command: command, 
       schedule: schedule, 
       type: type,
-      group_uuids: group_uuids 
+      group_uuids: group_uuids,
+      formatter_pattern: formatter[:pattern],
+      formatter_template: formatter[:template]
     }
     db.execute(
       "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
@@ -577,7 +586,8 @@ end
 # 4 - error, warning, log and debug
 
 def log?(lvl)
-  ENV['NOF_LOGGING']&.to_i < lvl
+  logging_level = ENV['NOF_LOGGING']&.to_i || 4
+  logging_level < lvl
 end
 
 def p(state, msg)

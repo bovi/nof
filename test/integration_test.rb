@@ -12,13 +12,15 @@ class IntegrationTest < Minitest::Test
   DASHBOARD_DIR = File.join(TEST_DIR, 'dashboard')
   
   TEST_HOST = 'test-host'
-  TEST_IP = '192.168.1.100'
+  TEST_IP = 'localhost'
   TEST_GROUP = 'test-group'
-  TEST_COMMAND = 'echo "test"'
-  TEST_SCHEDULE = '5'
+  TEST_ICMP_COUNT = '5'
+  TEST_ICMP_INTERVAL = '0.25'
+  TEST_COMMAND = "ping -q -c #{TEST_ICMP_COUNT} -i #{TEST_ICMP_INTERVAL} $IP"
+  TEST_SCHEDULE = '3'
   TEST_TYPE = 'shell'
 
-  SYNC_INTERVAL = 2
+  SYNC_INTERVAL = 5
 
   def setup
     # Create test directories
@@ -32,6 +34,7 @@ class IntegrationTest < Minitest::Test
     ENV['DASHBOARD_CONFIG_DIR'] = DASHBOARD_DIR
     ENV['CONTROLLER_UPDATE_DATA_INTERVAL'] = SYNC_INTERVAL.to_s
     ENV['CONTROLLER_UPDATE_CONFIG_INTERVAL'] = SYNC_INTERVAL.to_s
+    ENV['EXECUTOR_UPDATE_TASK_INTERVAL'] = SYNC_INTERVAL.to_s
 
     # Start all components
     @dashboard_pid = spawn('ruby', 'dashboard.rb')
@@ -127,12 +130,14 @@ class IntegrationTest < Minitest::Test
     assert_equal TEST_IP, hosts[0]['ip']
     assert_equal [groups[0]['uuid']], hosts[0]['group_uuids']
 
-    # CREATE TASK TEMPLATE
+    # CREATE TASK TEMPLATE WITH FORMATTER
     post_dashboard('/config/task_templates/add', {
       'command' => TEST_COMMAND,
       'schedule' => TEST_SCHEDULE,
       'type' => TEST_TYPE,
-      'group_uuids' => [groups[0]['uuid']]
+      'group_uuids' => [groups[0]['uuid']],
+      'formatter_pattern' => '(?<loss>\d+)% packet loss.*rtt min\/avg\/max\/mdev = (?<min>[\d.]+)\/(?<avg>[\d.]+)\/(?<max>[\d.]+)\/(?<mdev>[\d.]+)',
+      'formatter_template' => '{"packet_loss": %{loss}, "min": %{min}, "avg": %{avg}, "max": %{max}, "mdev": %{mdev}}'
     })
     task_templates = get_dashboard('/task_templates.json')
     assert_equal 1, task_templates.length
@@ -140,6 +145,8 @@ class IntegrationTest < Minitest::Test
     assert_equal TEST_SCHEDULE.to_i, task_templates[0]['schedule']
     assert_equal TEST_TYPE, task_templates[0]['type']
     assert_equal [groups[0]['uuid']], task_templates[0]['group_uuids']
+    refute_nil task_templates[0]['formatter_pattern']
+    refute_nil task_templates[0]['formatter_template']
 
     # now check dashboard index
     uri = URI("http://localhost:#{Dashboard::DEFAULT_PORT}/")
@@ -166,9 +173,29 @@ class IntegrationTest < Minitest::Test
 
     controller_tasks = get_controller('/tasks.json')
     assert_equal 1, controller_tasks.length
-    assert_equal TEST_COMMAND, controller_tasks[0]['command']
+    assert_equal TEST_COMMAND.gsub('$IP', TEST_IP), controller_tasks[0]['command']
     assert_equal TEST_SCHEDULE.to_i, controller_tasks[0]['schedule']
     assert_equal TEST_TYPE, controller_tasks[0]['type']
+    refute_nil controller_tasks[0]['formatter_pattern']
+    refute_nil controller_tasks[0]['formatter_template']
+
+    # wait for syncing and the reporting of the result
+    # after SYNC_INTERVAL  the configuration is synced from dashboard to controller
+    # after SYNC_INTERVAL * 2 the tasks are acquired by the executor
+    # after SYNC_INTERVAL * 2 + TEST_SCHEDULE + TEST_ICMP_COUNT * TEST_ICMP_INTERVAL the result is reported
+    # after SYNC_INTERVAL * 3 + TEST_SCHEDULE + TEST_ICMP_COUNT * TEST_ICMP_INTERVAL the result is synced from controller to dashboard
+    sleep (SYNC_INTERVAL * 3) + TEST_SCHEDULE.to_i + (TEST_ICMP_COUNT.to_i * TEST_ICMP_INTERVAL.to_f) + 1
+
+    # check if the result is reported
+    uri = URI("http://localhost:#{Dashboard::DEFAULT_PORT}/")
+    dashboard_index = Net::HTTP.get(uri)
+    m = dashboard_index.match(/{"packet_loss": (?<loss>[\d.]+), "min": (?<min>[\d.]+), "avg": (?<avg>[\d.]+), "max": (?<max>[\d.]+), "mdev": (?<mdev>[\d.]+)}/)
+    refute_nil m
+    assert_operator m['loss'].to_f, :==, 0
+    assert_operator m['min'].to_f, :<=, m['avg'].to_f
+    assert_operator m['avg'].to_f, :<=, m['max'].to_f
+    assert_operator m['max'].to_f, :>=, m['min'].to_f
+    assert_operator m['mdev'].to_f, :>=, 0
 
     # DELETE TASK TEMPLATE
     post_dashboard('/config/task_templates/delete', {
