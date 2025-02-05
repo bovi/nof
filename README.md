@@ -1,44 +1,36 @@
-# NOF - Network Operator Framework
+# Simple Task Distribution System
 
-```mermaid
-graph TD;
-  Controller["Controller"];
-    Dashboard["Dashboard"];
-    Executor["Executor"];
+This system consists of three main components:
 
-    Controller -->|update_data & update_config| Dashboard;
-    Executor -->|update_tasks & report_results| Controller;
+1. **Dashboard** (Port 8080): Web interface for task management and monitoring
+2. **Controller** (Port 8081): Central task coordination server
+3. **Executor** (Port 8082): Task execution agent
+
+## Setup
+
+1. Install Ruby (no additional dependencies required)
+
+2. Start the components in separate terminals:
+```bash
+# Start Dashboard
+ruby dash.rb
+
+# Start Controller
+ruby ctrl.rb
+
+# Start Executor
+ruby exec.rb
 ```
 
-## Connectivity Requirements
+## Architecture
 
-The Controller needs to be able to reach the Dashboard to update data and acquire configuration changes. The Executor needs to be able to reach the Controller to acquire tasks. For a hybrid deployment the Dashboard needs
-to be able to reach the remote Dashboard.
+- Dashboard -> Controller: Task configuration and monitoring
+- Controller -> Executor: Task distribution
+- Executor -> Controller: Task result reporting
 
-## Communication Details
+## Components
 
-Who is exchanging what data? Who is establishing the connection?
-
-### Executor to Controller
-
-The Executor is responsible to establish the connection to the Controller. The Executor will send a request to the Controller to acquire tasks. The Controller will respond with a list of tasks to be executed.
-
-#### update_tasks
-
-| Endpoint   | Data Format                                                                             |
-|------------|-----------------------------------------------------------------------------------------|
-| /tasks     | { tasks: [ { "command": "ls", "schedule": 20, "type": "shell", "uuid": "..." }, ... ] } |
-
-#### report_results
-
-| Endpoint   | Data Format                                            |
-|------------|--------------------------------------------------------|
-| /report    | { "uuid":"...", "result": "...", timestamp: 123456 }   |
-
-### Controller to Dashboard
-
-The Controller is responsible to establish the connection to the Dashboard. The Controller will send a request to the Dashboard to update data and acquire configuration changes. The Dashboard will respond with the updated data and configuration changes.
-
-#### update_data
-
-#### update_config
+- `dash.rb`: Web interface for managing tasks and viewing results
+- `ctrl.rb`: Central task coordination
+- `exec.rb`: Task execution agent
+- `lib/`: Shared utilities and models 
