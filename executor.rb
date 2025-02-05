@@ -111,8 +111,12 @@ def update_task_schedules(new_tasks)
       @schedule_threads[uuid] = Thread.new do
         loop do
           raw_result = `#{command}`
-          formatted_result = format_result(raw_result, formatter_pattern, formatter_template)
-          report_result(uuid, formatted_result)
+          result = if raw_result.empty? || formatter_pattern.nil? || formatter_pattern.empty? || formatter_template.nil? || formatter_template.empty?
+            raw_result
+          else
+            format_result(raw_result, formatter_pattern, formatter_template)
+          end
+          report_result(uuid, result)
           sleep schedule.to_i
         end
       end

@@ -317,10 +317,19 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
       when '/config/task_templates/add_group'
         data = URI.decode_www_form(request.body).to_h
         template_uuid = data['template_uuid']
-        group_uuid = data['group_uuid']
+        group_uuids = data['group_uuid'].is_a?(Array) ? data['group_uuid'] : [data['group_uuid']].compact
         
-        Groups.add_task_template(group_uuid, template_uuid)
-        Activities.add_template_to_group(template_uuid, group_uuid)
+        # Get existing groups for this template
+        existing_groups = Groups.get_groups_for_template(template_uuid)
+        existing_group_uuids = existing_groups.map { |g| g['uuid'] }
+        
+        # Filter out groups that are already assigned
+        new_group_uuids = group_uuids.reject { |uuid| existing_group_uuids.include?(uuid) }
+        
+        Groups.add_task_template(new_group_uuids, template_uuid)
+        new_group_uuids.each do |group_uuid|
+          Activities.add_template_to_group(template_uuid, group_uuid)
+        end
 
       when '/config/task_templates/delete'
         data = URI.decode_www_form(request.body).to_h
@@ -348,8 +357,15 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         host_uuid = data['host_uuid']
         group_uuid = data['group_uuid']
         
-        Groups.add_host(group_uuid, host_uuid)
-        Activities.add_host_to_group(host_uuid, group_uuid)
+        # Get existing groups for this host
+        existing_groups = Groups.get_groups_for_host(host_uuid)
+        existing_group_uuids = existing_groups.map { |g| g['uuid'] }
+        
+        # Only add if host isn't already in this group
+        unless existing_group_uuids.include?(group_uuid)
+          Groups.add_host(group_uuid, host_uuid)
+          Activities.add_host_to_group(host_uuid, group_uuid)
+        end
 
       when '/config/hosts/delete'
         data = URI.decode_www_form(request.body).to_h
