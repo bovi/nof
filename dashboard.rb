@@ -4,7 +4,6 @@ require 'json'
 require 'thread'
 
 require_relative 'lib/nof'
-require_relative 'lib/activity_handlers'
 
 $system = 'dash'
 
