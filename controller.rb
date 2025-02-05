@@ -5,6 +5,8 @@ require 'thread'
 
 require_relative 'lib/nof'
 
+$system = 'ctrl'
+
 CONTROLLER_CONFIG_DIR = ENV['CONTROLLER_CONFIG_DIR'] || Dir.mktmpdir
 DASHBOARD_PORT = ENV['DASHBOARD_PORT']&.to_i || Dashboard::DEFAULT_PORT
 DASHBOARD_HOST = ENV['DASHBOARD_HOST'] || 'localhost'
@@ -82,10 +84,16 @@ def update_config(state)
         debug("Dashboard already initialized")
       elsif ret['message'] == 'sync'
         debug("Synced dashboard activities")
+
+        # list activities in debug message
+        debug("Activities:")
+        ret['activities'].each do |activity|
+          debug("  #{activity['action']}: #{activity['opt'].inspect}")
+        end
         
         # First pass: Create/delete base entities
         ret['activities'].each do |activity|
-          case activity['type']
+          case activity['action']
           when 'add_host'
             uuid = Hosts.add(activity['opt']['name'], activity['opt']['ip'], with_uuid: activity['opt']['uuid'])
             debug("Adding host: #{uuid}")
@@ -93,19 +101,15 @@ def update_config(state)
             uuid = Groups.add(activity['opt']['name'], with_uuid: activity['opt']['uuid'])
             debug("Adding group: #{uuid}")
           when 'add_task_template'
-            formatter = {
-              pattern: activity['opt']['formatter_pattern'],
-              template: activity['opt']['formatter_template']
-            }
+            debug("update_config(add_task_template): Adding task template: #{uuid} with data: #{activity.inspect}")
             uuid = TaskTemplates.add(
               activity['opt']['command'],
               activity['opt']['schedule'],
               activity['opt']['type'],
               activity['opt']['group_uuids'],
-              formatter: formatter,
+              formatter: activity['opt']['formatter'],
               with_uuid: activity['opt']['uuid']
             )
-            debug("Adding task template: #{uuid}")
           when 'delete_host'
             Hosts.remove(activity['opt']['uuid'])
             debug("Deleting host: #{activity['opt']['uuid']}")
@@ -120,7 +124,7 @@ def update_config(state)
 
         # Second pass: Create relationships
         ret['activities'].each do |activity|
-          case activity['type']
+          case activity['action']
           when 'add_host_to_group'
             begin
               Groups.add_host(
@@ -173,6 +177,7 @@ class ControllerServlet < WEBrick::HTTPServlet::AbstractServlet
         debug("Found #{host_tasks.length} tasks for host #{host['name']}")
         
         host_tasks.each do |task|
+          debug("Getting task: #{task.inspect}")
           # Replace $IP with the host's IP address in the command
           command = task['command'].gsub('$IP', host['ip'])
           
@@ -269,6 +274,13 @@ def start_controller
     server_config.merge!(
       Logger: WEBrick::Log.new(File::NULL),
       AccessLog: []
+    )
+  else
+    server_config.merge!(
+      Logger: WEBrick::Log.new($stderr),
+      AccessLog: [
+        [$stderr, "[#{Time.now.strftime('%Y-%m-%d %H:%M:%S %z')}] [#{$system}] LOG(webrick): %t %h %l %u \"%r\" %>s %b \"%{Referer}\" \"%{User-agent}i\""]
+      ]
     )
   end
   

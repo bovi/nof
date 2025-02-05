@@ -4,6 +4,8 @@ require 'thread'
 
 require_relative 'lib/nof'
 
+$system = 'exec'
+
 CONTROLLER_HOST = ENV['CONTROLLER_HOST'] || 'localhost'
 CONTROLLER_PORT = ENV['CONTROLLER_PORT'] || Controller::DEFAULT_PORT
 

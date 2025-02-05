@@ -203,15 +203,17 @@ class TaskTemplates
   end
 
   def self.add(command, schedule, type, group_uuids = [], formatter: nil, with_uuid: nil)
+    debug("TaskTemplates::add Adding task template with data: #{command}, #{schedule}, #{type}, #{group_uuids}, #{formatter}, #{with_uuid}")
     uuid = with_uuid || SecureRandom.uuid
     db.transaction do
       db.execute(
         "INSERT INTO task_templates (uuid, command, schedule, type, formatter_pattern, formatter_template) VALUES (?, ?, ?, ?, ?, ?)",
-        [uuid, command, schedule.to_i, type, formatter[:pattern], formatter[:template]]
+        [uuid, command, schedule.to_i, type, formatter['pattern'], formatter['template']]
       )
       
       # Add group associations
       group_uuids.each do |group_uuid|
+        debug("Adding task template #{uuid} to group #{group_uuid}")
         db.execute(
           "INSERT INTO task_template_groups (task_template_uuid, group_uuid) VALUES (?, ?)",
           [uuid, group_uuid]
@@ -337,18 +339,22 @@ class Groups
     )
   end
 
-  def self.add_task_template(group_uuid, template_uuid)
-    db.execute(
-      "INSERT INTO task_template_groups (group_uuid, task_template_uuid) VALUES (?, ?)",
-      [group_uuid, template_uuid]
-    )
+  def self.add_task_template(group_uuids, template_uuid)
+    group_uuids.each do |group_uuid|
+      db.execute(
+        "INSERT INTO task_template_groups (group_uuid, task_template_uuid) VALUES (?, ?)",
+        [group_uuid, template_uuid]
+      )
+    end
   end
 
-  def self.remove_task_template(group_uuid, template_uuid)
-    db.execute(
-      "DELETE FROM task_template_groups WHERE group_uuid = ? AND task_template_uuid = ?",
-      [group_uuid, template_uuid]
-    )
+  def self.remove_task_template(group_uuids, template_uuid)
+    group_uuids.each do |group_uuid|
+      db.execute(
+        "DELETE FROM task_template_groups WHERE group_uuid = ? AND task_template_uuid = ?",
+        [group_uuid, template_uuid]
+      )
+    end
   end
 
   def self.get_groups_for_template(template_uuid)
@@ -418,6 +424,7 @@ class Hosts
 
   def self.add(name, ip, with_uuid: nil)
     uuid = with_uuid || SecureRandom.uuid
+    debug("Adding host: #{uuid} #{name} #{ip}")
     db.execute(
       "INSERT INTO hosts (uuid, name, ip) VALUES (?, ?, ?)",
       [uuid, name, ip]
@@ -461,12 +468,13 @@ class Activities
   def self.all
     activities = []
     db.execute("SELECT activity_id, timestamp, type, options FROM activities ORDER BY timestamp DESC") do |row|
-      activities << {
+      activity = {
         'activity_id' => row[0],
         'timestamp' => row[1],
-        'type' => row[2],
+        'action' => row[2],
         'opt' => JSON.parse(row[3])
       }
+      activities << activity
     end
     activities
   end
@@ -475,106 +483,107 @@ class Activities
     db.get_first_value("SELECT EXISTS(SELECT 1 FROM activities)") == 1
   end
 
-  def self.add_task(uuid, command, schedule, type)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { uuid: uuid, command: command, schedule: schedule, type: type }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'add_task', options.to_json]
-    )
-  end
-
-  def self.delete_task(uuid)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { uuid: uuid }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'delete_task', options.to_json]
-    )
-  end
-
-  def self.add_host(uuid, name, ip)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { uuid: uuid, name: name, ip: ip }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'add_host', options.to_json]
-    )
-  end
-
-  def self.delete_host(uuid)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { uuid: uuid }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'delete_host', options.to_json]
-    )
-  end
-
-  def self.add_group(uuid, name)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { uuid: uuid, name: name }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'add_group', options.to_json]
-    )
-  end
-
-  def self.delete_group(uuid)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { uuid: uuid }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'delete_group', options.to_json]
-    )
-  end
-
-  def self.add_task_template(uuid, command, schedule, type, group_uuids, formatter)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { 
-      uuid: uuid, 
-      command: command, 
-      schedule: schedule, 
-      type: type,
-      group_uuids: group_uuids,
-      formatter_pattern: formatter[:pattern],
-      formatter_template: formatter[:template]
-    }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'add_task_template', options.to_json]
-    )
-  end
-
-  def self.delete_task_template(uuid)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { uuid: uuid }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'delete_task_template', options.to_json]
-    )
-  end
-
-  def self.add_host_to_group(host_uuid, group_uuid)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { host_uuid: host_uuid, group_uuid: group_uuid }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'add_host_to_group', options.to_json]
-    )
-  end
-
-  def self.add_template_to_group(template_uuid, group_uuid)
-    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
-    options = { template_uuid: template_uuid, group_uuid: group_uuid }
-    db.execute(
-      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
-      [activity_id, Time.now.to_i, 'add_template_to_group', options.to_json]
-    )
-  end
-
   def self.clean!
     db.execute("DELETE FROM activities")
+  end
+
+  def self.handle_activities(activities)
+    activities.each do |activity|
+      handler_class = case activity['action']
+      when /^(add|delete)_task_template$/, /template_to_group$/
+        ActivityHandlers::TaskTemplateHandler
+      when /^(add|delete)_host$/, /host_to_group$/
+        ActivityHandlers::HostHandler
+      when /^(add|delete)_group$/
+        ActivityHandlers::GroupHandler
+      else
+        raise "Unknown activity type: #{activity['action']}"
+      end
+
+      handler_class.handle_activity(activity)
+    end
+  end
+
+  private
+
+  def self.add(activity)
+    activity_id = "#{Time.now.to_i}-#{SecureRandom.uuid}"
+    # Create options hash without the action key
+    options = activity.reject { |k,_| k == :action }
+    db.execute(
+      "INSERT INTO activities (activity_id, timestamp, type, options) VALUES (?, ?, ?, ?)",
+      [activity_id, Time.now.to_i, activity[:action], options.to_json]
+    )
+  end
+
+  # Define public methods that create standardized activities
+  class << self
+    def add_task_template(uuid, command, schedule, type, group_uuids, formatter)
+      add({
+        action: 'add_task_template',
+        uuid: uuid,
+        command: command,
+        schedule: schedule,
+        type: type,
+        group_uuids: group_uuids,
+        formatter: formatter
+      })
+    end
+
+    def delete_task_template(uuid)
+      add({
+        action: 'delete_task_template',
+        uuid: uuid
+      })
+    end
+
+    def add_template_to_group(template_uuid, group_uuid)
+      add({
+        action: 'add_template_to_group',
+        template_uuid: template_uuid,
+        group_uuids: group_uuids
+      })
+    end
+
+    def add_host(uuid, name, ip)
+      add({
+        action: 'add_host',
+        uuid: uuid,
+        name: name,
+        ip: ip
+      })
+    end
+
+    def delete_host(uuid)
+      add({
+        action: 'delete_host',
+        uuid: uuid
+      })
+    end
+
+    def add_host_to_group(host_uuid, group_uuid)
+      debug("Adding host: '#{host_uuid}' to group: '#{group_uuid}'")
+      add({
+        action: 'add_host_to_group',
+        host_uuid: host_uuid,
+        group_uuid: group_uuid
+      })
+    end
+
+    def add_group(uuid, name)
+      add({
+        action: 'add_group',
+        uuid: uuid,
+        name: name
+      })
+    end
+
+    def delete_group(uuid)
+      add({
+        action: 'delete_group',
+        uuid: uuid
+      })
+    end
   end
 end
 
@@ -591,7 +600,7 @@ def log?(lvl)
 end
 
 def p(state, msg)
-  puts "[#{Time.now}] #{state}: #{msg}"
+  puts "[#{Time.now}] [#{$system}] #{state}: #{msg}"
 end
 
 def debug(message)

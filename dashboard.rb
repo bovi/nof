@@ -4,6 +4,9 @@ require 'json'
 require 'thread'
 
 require_relative 'lib/nof'
+require_relative 'lib/activity_handlers'
+
+$system = 'dash'
 
 DASHBOARD_CONFIG_DIR = ENV['DASHBOARD_CONFIG_DIR'] || Dir.mktmpdir
 DASHBOARD_PORT = ENV['DASHBOARD_PORT'] || Dashboard::DEFAULT_PORT
@@ -277,7 +280,8 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
           TaskTemplates.clean!
           tasks = JSON.parse(request.body)['tasks'] || []
           tasks.each do |task|
-            TaskTemplates.add(task['command'], task['schedule'], task['type'], task['group_uuids'] || [], with_uuid: task['uuid'])
+            TaskTemplates.add(task['command'], task['schedule'], task['type'], 
+                             task['group_uuids'] || [], with_uuid: task['uuid'])
           end
           Dashboard.state = :synced
           response.status = 200
@@ -304,8 +308,8 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         type = data['type']
         group_uuids = data['group_uuids'].is_a?(Array) ? data['group_uuids'] : [data['group_uuids']].compact
         formatter = {
-          pattern: data['formatter_pattern'],
-          template: data['formatter_template']
+          'pattern' => data['formatter_pattern'],
+          'template' => data['formatter_template']
         }
 
         uuid = TaskTemplates.add(command, schedule, type, group_uuids, formatter: formatter)
@@ -334,11 +338,11 @@ class DashboardServlet < WEBrick::HTTPServlet::AbstractServlet
         debug("Group uuids: #{group_uuids.inspect}")
 
         uuid = Hosts.add(name, ip)
+        Activities.add_host(uuid, name, ip)
         group_uuids.each do |group_uuid|
           Groups.add_host(group_uuid, uuid)
           Activities.add_host_to_group(uuid, group_uuid)
         end
-        Activities.add_host(uuid, name, ip)
 
       when '/config/hosts/add_group'
         data = URI.decode_www_form(request.body).to_h
@@ -395,6 +399,13 @@ def start_dashboard
     server_config.merge!(
       Logger: WEBrick::Log.new(File::NULL),
       AccessLog: []
+    )
+  else
+    server_config.merge!(
+      Logger: WEBrick::Log.new($stderr),
+      AccessLog: [
+        [$stderr, "[#{Time.now.strftime('%Y-%m-%d %H:%M:%S %z')}] [#{$system}] LOG(webrick): %t %h %l %u \"%r\" %>s %b \"%{Referer}\" \"%{User-agent}i\""]
+      ]
     )
   end
   
