@@ -2,19 +2,31 @@ require 'rake/testtask'
 
 desc 'Run integration tests (default)'
 task :test do
-  ENV['QUIET_MODE'] = '1'
-  ruby 'test_integration.rb'
+  ENV['VERBOSE'] = '1'
+  begin
+    ruby 'test/test.rb'
+  rescue Interrupt
+    puts "\nGracefully shutting down..."
+  end
 end
 
 desc 'Run integration tests with debug output'
 task :test_debug do
   ENV['QUIET_MODE'] = nil
-  ruby 'test_integration.rb'
+  begin
+    ruby 'test/test.rb'
+  rescue Interrupt
+    puts "\nGracefully shutting down..."
+  end
 end
 
 desc 'Start the system for interactive use'
 task :start do
-  ruby 'start.rb'
+  begin
+    ruby 'start.rb'
+  rescue Interrupt
+    puts "\nShutting down..."
+  end
 end
 
 desc 'Clean any temporary files'
@@ -23,4 +35,4 @@ task :clean do
 end
 
 # Make test the default task
-task default: :test 
+task default: :test
