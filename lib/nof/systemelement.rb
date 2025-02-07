@@ -63,6 +63,10 @@ class SystemElement
     @server = WEBrick::HTTPServer.new(self.class.server_config)
     setup_routes
     setup_shutdown_handlers
+    trap('INT') do
+      @server.shutdown
+      info "Shutting down"
+    end
   end
 
   def system_name

@@ -25,7 +25,7 @@ class ExecutionTest < Minitest::Test
     @server_thread = Thread.new { @mock_server.start }
     
     # Start the executor with output redirected to /dev/null
-    @executor_pid = spawn('ruby exec.rb', [:out, :err] => File::NULL)
+    @executor_pid = spawn('ruby exec.rb')
     sleep(2) # Give time to start up
   end
 

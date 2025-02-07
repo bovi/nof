@@ -1,7 +1,7 @@
 class DashboardTest < Minitest::Test
   def setup
     # Start the dashboard server with output redirected to /dev/null
-    @dash_pid = spawn('ruby dash.rb', [:out, :err] => File::NULL)
+    @dash_pid = spawn('ruby dash.rb')
     # Give the server a moment to start
     sleep(2)
   end

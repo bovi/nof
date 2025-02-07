@@ -1,6 +1,6 @@
 def _(lvl, msg)
   sys = $system_name
-  puts "[#{Time.now.strftime('%Y-%m-%d %H:%M:%S')}] #{sys} #{lvl}: #{msg}"
+  puts "[#{Time.now.strftime('%Y-%m-%d %H:%M:%S')}] #{sys} #{lvl} #{msg}"
 end
 
 def err(message)

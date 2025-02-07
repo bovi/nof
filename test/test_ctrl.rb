@@ -1,7 +1,7 @@
 class ControllerTest < Minitest::Test
   def setup
     # Start the controller server with output redirected to /dev/null
-    @controller_pid = spawn('ruby ctrl.rb', [:out, :err] => File::NULL)
+    @controller_pid = spawn('ruby ctrl.rb')
     # Give the server a moment to start
     sleep(2)
   end

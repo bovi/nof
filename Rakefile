@@ -2,7 +2,7 @@ require 'rake/testtask'
 
 desc 'Run integration tests (default)'
 task :test do
-  ENV['VERBOSE'] = '1'
+  ENV['NOF_VERBOSE'] = '0'
   begin
     ruby 'test/test.rb'
   rescue Interrupt
@@ -12,7 +12,7 @@ end
 
 desc 'Run integration tests with debug output'
 task :test_debug do
-  ENV['QUIET_MODE'] = nil
+  ENV['NOF_VERBOSE'] = '4'
   begin
     ruby 'test/test.rb'
   rescue Interrupt

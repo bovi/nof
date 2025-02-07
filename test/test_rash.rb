@@ -1,7 +1,7 @@
 class RemoteDashboardTest < Minitest::Test
   def setup
     # Start the remote dashboard server with output redirected to /dev/null
-    @r_dash_pid = spawn('ruby rash.rb', [:out, :err] => File::NULL)
+    @r_dash_pid = spawn('ruby rash.rb')
     # Give the server a moment to start
     sleep(2)
   end
