@@ -1,5 +1,11 @@
 require 'securerandom'
 
+# Track changes in the systems (called activities)
+# Every change in the system is tracked
+# This is necessary for audit the interaction
+# but also to synchronize the systems
+# e.g. a change on the Dashboard should be reflected
+# on the Controller and the RemoteDashboard
 class Activities
   class << self
     def register(action, &block)

@@ -1,5 +1,8 @@
 require 'webrick'
 
+# Base class for Controller, Dashboard and RemoteDashboard
+# It provides a HTTP interface to the system, a way to register
+# routes and provides several default routes.
 class System
   PORT = nil
 
@@ -84,7 +87,7 @@ class System
   
   def handle_request(req, res)
     if self.class.routes.key?(req.path)
-      self.class.routes[req.path].call(res)
+      self.class.routes[req.path].call(req, res)
     else
       not_found(res)
     end
@@ -107,8 +110,8 @@ class System
     end
   end
 
-  # Register common routes that all systems will have
-  register '/info.json' do |res|
+  # common information about the system
+  register '/info.json' do |req, res|
     res.body = JSON.generate({
       name: $system_name,
       version: '0.1.0'
@@ -116,7 +119,10 @@ class System
     res.content_type = 'application/json'
   end
 
-  register '/status.json' do |res|
+  # common status information about the system
+  # health: ok, ko
+  # status: init, synced, oosync
+  register '/status.json' do |req, res|
     res.body = JSON.generate({
       health: 'ok',
       status: 'init'

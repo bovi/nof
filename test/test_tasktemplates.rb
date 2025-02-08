@@ -19,7 +19,7 @@ class TestTaskTemplates < Minitest::Test
 
     # create task template
     # check if activity and task was created
-    activity_uuid, task_uuid = Activities.tasktemplate_add(cmd: "echo 'Hello, world!'", format: "text")
+    activity_uuid, task = Activities.tasktemplate_add(cmd: "echo 'Hello, world!'", format: "text")
     assert_equal s + 1, TaskTemplates.size, "Task template should be created"
     assert_equal sa + 1, Activities.size, "Activity should be created"
     assert_equal "tasktemplate_add", Activities[activity_uuid][:action]
@@ -28,10 +28,10 @@ class TestTaskTemplates < Minitest::Test
 
     # delete task template
     # check if task was deleted and activity was created
-    activity_uuid, result = Activities.tasktemplate_delete(uuid: task_uuid)
+    activity_uuid, result = Activities.tasktemplate_delete(uuid: task[:uuid])
     assert_equal s, TaskTemplates.size, "Task template should be deleted"
     assert_equal sa + 2, Activities.size, "2. Activity should be created"
     assert_equal "tasktemplate_delete", Activities[activity_uuid][:action]
-    assert_equal task_uuid, Activities[activity_uuid][:opt][:uuid]
+    assert_equal task[:uuid], Activities[activity_uuid][:opt][:uuid]
   end
 end

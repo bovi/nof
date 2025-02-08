@@ -1,5 +1,8 @@
 require 'securerandom'
 
+# A template which can be used to in combination
+# with a Host to create a Task. Such a task instance
+# will be executed by the Executor.
 class TaskTemplates
   class << self
     def add(uuid: nil, cmd: nil, format: nil)
@@ -12,7 +15,7 @@ class TaskTemplates
       @task_templates ||= []
       @task_templates << task
 
-      task[:uuid]
+      task
     end
 
     def size
@@ -29,6 +32,10 @@ class TaskTemplates
 
     def inspect
       (@task_templates || []).inspect
+    end
+
+    def to_json
+      (@task_templates || []).to_json
     end
   end
 end

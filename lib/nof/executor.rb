@@ -3,6 +3,12 @@ require 'json'
 require_relative 'controller'
 require_relative 'logging'
 
+# The Executor is the component that
+# executes tasks, collects the results
+# and reports them to the Controller.
+# The tasks are acquired via a HTTP interface
+# from the Controller. The same interface
+# is used to report the results.
 class Executor
   def initialize
     $system_name = 'EXEC'
