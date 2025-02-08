@@ -66,12 +66,14 @@ class DashboardTest < Minitest::Test
 
     # create a task template
     # by posting to /tasktemplates
-    response = post('tasktemplate', { cmd: "echo 'Hello, world!'",
-                                      format: "text" })
+    response = post('tasktemplate', { "cmd" => "echo 'Hello, world!'",
+                                      "pattern" => "(\w+): (\d+)",
+                                      "template" => "{name}: {value}" })
     assert_equal '200', response.code, "Task template should be created"
     task_template = JSON.parse(response.body)
     assert_equal "echo 'Hello, world!'", task_template['cmd']
-    assert_equal "text", task_template['format']
+    assert_equal "(\w+): (\d+)", task_template['format']['pattern']
+    assert_equal "{name}: {value}", task_template['format']['template']
 
     # check if the task template was created
     response = get('tasktemplates.json')
@@ -79,9 +81,65 @@ class DashboardTest < Minitest::Test
     task_templates = JSON.parse(response.body)
     assert_equal st + 1, task_templates.size, "Task template should be created"
 
+    # check if the activity was created
     response = get('activities.json')
     assert_equal '200', response.code, "Activities page should be accessible"
     activities = JSON.parse(response.body)
     assert_equal sa + 1, activities.size, "Activity should be created"
+
+    # delete the task template
+    response = post('tasktemplate/delete', { "uuid" => task_template['uuid'] })
+    assert_equal '200', response.code, "Task template should be deleted"
+
+    # check if the delete activity was created
+    response = get('activities.json')
+    assert_equal '200', response.code, "Activities page should be accessible"
+    activities = JSON.parse(response.body)
+    assert_equal sa + 2, activities.size, "Activity should be deleted"
+
+    # check if the task template was deleted
+    response = get('tasktemplates.json')
+    assert_equal '200', response.code, "Task templates page should be accessible"
+    task_templates = JSON.parse(response.body)
+    assert_equal st, task_templates.size, "Task template should be deleted"
+
+    # check the redirect features
+    response = post('tasktemplate', { "cmd" => "echo 'Hello, world!'",
+                                      "pattern" => "(\w+): (\d+)",
+                                      "template" => "{name}: {value}",
+                                      "return_url" => "/tasktemplates.html" })
+    assert_equal '302', response.code, "Redirect should be returned"
+    assert_equal "http://#{Dashboard.host}:#{Dashboard.port}/tasktemplates.html", response['Location'], "Redirect should be to /tasktemplates.html"
+
+    # check if the task template was created
+    response = get('tasktemplates.json')
+    assert_equal '200', response.code, "Task templates page should be accessible"
+    task_templates = JSON.parse(response.body)
+    task_template = task_templates.last
+    assert_equal st + 1, task_templates.size, "Task template should be created"
+
+    # check if the activity was created
+    response = get('activities.json')
+    assert_equal '200', response.code, "Activities page should be accessible"
+    activities = JSON.parse(response.body)
+    assert_equal sa + 3, activities.size, "Activity should be created"
+    
+    # check if redirect for delete works
+    response = post('tasktemplate/delete', { "uuid" => task_template['uuid'],
+                                             "return_url" => "/tasktemplates.html" })
+    assert_equal '302', response.code, "Redirect should be returned"
+    assert_equal "http://#{Dashboard.host}:#{Dashboard.port}/tasktemplates.html", response['Location'], "Redirect should be to /tasktemplates.html"
+    
+    # check if the task template was deleted
+    response = get('tasktemplates.json')
+    assert_equal '200', response.code, "Task templates page should be accessible"
+    task_templates = JSON.parse(response.body)
+    assert_equal st, task_templates.size, "Task template should be deleted"
+
+    # check if the delete activity was created
+    response = get('activities.json')
+    assert_equal '200', response.code, "Activities page should be accessible"
+    activities = JSON.parse(response.body)
+    assert_equal sa + 4, activities.size, "Activity should be deleted"
   end
 end

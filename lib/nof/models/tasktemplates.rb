@@ -10,7 +10,7 @@ class TaskTemplates
       task[:uuid] = uuid || SecureRandom.uuid
       raise ArgumentError, "cmd is required" unless cmd
       task[:cmd] = cmd
-      task[:format] = format
+      task[:format] = format || {}
 
       @task_templates ||= []
       @task_templates << task
@@ -37,11 +37,19 @@ class TaskTemplates
     def to_json
       (@task_templates || []).to_json
     end
+
+    def all
+      (@task_templates || [])
+    end
   end
 end
 
 Activities.register("tasktemplate_add") do |hsh|
-  TaskTemplates.add(uuid: hsh[:uuid], cmd: hsh[:cmd], format: hsh[:format])
+  TaskTemplates.add(
+    uuid: hsh[:uuid],
+    cmd: hsh[:cmd],
+    format: hsh[:format]
+  )
 end
 
 Activities.register("tasktemplate_delete") do |hsh|

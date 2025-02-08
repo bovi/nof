@@ -33,10 +33,36 @@ class Dashboard < System
 
     _, task_template = Activities.tasktemplate_add(
       cmd: params['cmd'],
-      format: params['format']
+      format: {
+        pattern: params['pattern'],
+        template: params['template']
+      }
     )
 
-    res.body = task_template.to_json
-    res.content_type = 'application/json'
+    if params['return_url']
+      res.status = 302
+      res['Location'] = params['return_url']
+    else
+      res.body = task_template.to_json
+      res.content_type = 'application/json'
+    end
+  end
+
+  register '/tasktemplate/delete' do |req, res|
+    params = req.query
+    Activities.tasktemplate_delete(uuid: params['uuid'])
+    
+    if params['return_url']
+      res.status = 302
+      res['Location'] = params['return_url']
+    else
+      res.status = 200
+    end
+  end
+
+  register '/tasktemplates.html' do |req, res|
+    template = File.read(File.join(__dir__, 'views', 'tasktemplate.erb'))
+    res.body = ERB.new(template).result(binding)
+    res.content_type = 'text/html'
   end
 end

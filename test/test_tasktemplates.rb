@@ -1,13 +1,15 @@
 class TestTaskTemplates < Minitest::Test
   def test_add
     s = TaskTemplates.size
-    TaskTemplates.add(uuid: "123", cmd: "echo 'Hello, world!'", format: "text")
+    TaskTemplates.add(uuid: "123", cmd: "echo 'Hello, world!'",
+                      format: { pattern: "(\w+): (\d+)", template: "{name}: {value}" })
     assert_equal s + 1, TaskTemplates.size, "Task template should be created"
 
     t = TaskTemplates.get("123")
     assert_equal "123", t[:uuid]
     assert_equal "echo 'Hello, world!'", t[:cmd]
-    assert_equal "text", t[:format]
+    assert_equal "(\w+): (\d+)", t[:format][:pattern]
+    assert_equal "{name}: {value}", t[:format][:template]
 
     TaskTemplates.delete("123")
     assert_equal s, TaskTemplates.size, "Task template should be deleted"

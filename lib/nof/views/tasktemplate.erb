@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Task Templates</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    .task { border: 1px solid #ccc; padding: 1em; margin: 1em 0; }
+    form { margin: 2em 0; }
+    label { display: block; margin: 0.5em 0; }
+    input, select { width: 100%; padding: 0.5em; }
+    button { padding: 0.5em 1em; }
+    ul { margin: 0; padding-left: 1.5em; }
+    .delete-button { 
+      background-color: #ff4444; 
+      color: white; 
+      border: none;
+      float: right;
+      width: auto;
+    }
+    .task-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Task Templates</h1>
+
+  <form action="/tasktemplate" method="POST">
+    <h2>Add New Task Template</h2>
+    
+    <label for="cmd">Command:</label>
+    <input type="text" id="cmd" name="cmd" required>
+    
+    <label for="pattern">Pattern:</label>
+    <input type="text" id="pattern" name="pattern" placeholder="e.g. (?<name>\w+): (?<value>\d+)">
+    
+    <label for="template">Template:</label>
+    <input type="text" id="template" name="template" placeholder="e.g. {name}: {value}">
+
+    <input type="hidden" name="return_url" value="/tasktemplates.html">
+    <button type="submit">Add Task Template</button>
+  </form>
+
+  <h2>Existing Task Templates</h2>
+  <div id="task-list">
+    <% TaskTemplates.all.each do |task| %>
+      <div class="task">
+        <div class="task-header">
+          <h3>Command: <%= task[:cmd] %></h3>
+          <form action="/tasktemplate/delete" method="POST" style="margin: 0;">
+            <input type="hidden" name="uuid" value="<%= task[:uuid] %>">
+            <input type="hidden" name="return_url" value="/tasktemplates.html">
+            <button type="submit" class="delete-button">Delete</button>
+          </form>
+        </div>
+        <p>Format:</p>
+        <ul>
+          <li>Pattern: <%= task[:format][:pattern] %></li>
+          <li>Template: <%= task[:format][:template] %></li>
+        </ul>
+      </div>
+    <% end %>
+  </div>
+</body>
+</html>
+
