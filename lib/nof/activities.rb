@@ -10,6 +10,10 @@ class Activities
       @own_actions ||= {}
     end
 
+    def [](uuid)
+      (@activities || []).find { |a| a[:uuid] == uuid }
+    end
+
     def add(uuid: nil, created_at: nil, action: nil, opt: {})
       @activities ||= []
       activity = {}
@@ -19,6 +23,8 @@ class Activities
       activity[:action] = action
       activity[:opt] = opt
       @activities << activity
+
+      activity[:uuid]
     end
 
     def size
@@ -29,14 +35,26 @@ class Activities
       (@activities || []).to_json
     end
 
+    # call registered action
+    #
+    # return array with:
+    # - uuid of the activity
+    # - result of the action
     def method_missing(method_name, *args, &block)
       if own_actions.key?(method_name.to_s)
-        own_actions[method_name.to_s].call(*args, &block)
+        hsh = args.first || {}
+        result = own_actions[method_name.to_s].call(hsh, &block)
+        activity_uuid = add(action: method_name.to_s, opt: hsh)
+        [activity_uuid, result]
       else
+        # action not registered
         super
       end
     end
 
+    # implement respond_to_missing? to make
+    # this class behave like all registered
+    # actions are real methods
     def respond_to_missing?(method_name, include_private = false)
       own_actions.key?(method_name.to_s) || super
     end
