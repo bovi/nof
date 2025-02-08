@@ -13,17 +13,17 @@ class ControllerTest < Minitest::Test
   end
 
   def test_index
-    response = Net::HTTP.get_response(URI("http://localhost:#{Controller.port}"))
+    response = Net::HTTP.get_response(URI("http://#{Controller.host}:#{Controller.port}"))
     assert_equal '200', response.code, "Controller index page should be accessible"
   end
 
   def test_tasks_endpoint
-    response = Net::HTTP.get_response(URI("http://localhost:#{Controller.port}/tasks.json"))
+    response = Net::HTTP.get_response(URI("http://#{Controller.host}:#{Controller.port}/tasks.json"))
     assert_equal '200', response.code, "Controller tasks endpoint should be accessible"
   end
 
   def test_wrong_endpoint
-    response = Net::HTTP.get_response(URI("http://localhost:#{Controller.port}/wrong.json"))
+    response = Net::HTTP.get_response(URI("http://#{Controller.host}:#{Controller.port}/wrong.json"))
     assert_equal '404', response.code, "Controller wrong endpoint should return 404"
   end
 end

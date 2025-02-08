@@ -1,6 +1,6 @@
 require 'webrick'
 
-class SystemElement
+class System
   PORT = nil
 
   class << self
@@ -30,12 +30,7 @@ class SystemElement
       if quiet_logging?
         config.merge!(
           Logger: WEBrick::Log.new(File::NULL),
-          AccessLog: [],
-          StartCallback: proc { |server|
-            def server.access_log(config, req, res)
-              # no-op to suppress access logging
-            end
-          }
+          AccessLog: []
         )
       else
         config.merge!(
@@ -43,14 +38,7 @@ class SystemElement
           AccessLog: [[
             $stdout,
             "[%{%Y-%m-%d %H:%M:%S}t] #{$system_name} INFO %h %m %U %q -> %s %b",
-          ]],
-          StartCallback: proc { |server|
-            def server.access_log(config, req, res)
-              msg = "[#{Time.now}] #{$system_name} INFO #{req.remote_ip} #{req.request_method} #{req.path} ->"
-              msg += " #{res.status} #{res.content_length}"
-              config[:Logger].info(msg)
-            end
-          }
+          ]]
         )
       end
     end
@@ -63,10 +51,6 @@ class SystemElement
     @server = WEBrick::HTTPServer.new(self.class.server_config)
     setup_routes
     setup_shutdown_handlers
-    trap('INT') do
-      @server.shutdown
-      info "Shutting down"
-    end
   end
 
   def system_name
@@ -109,8 +93,14 @@ class SystemElement
   end
   
   def setup_shutdown_handlers
-    trap('INT') { @server.shutdown }
-    trap('TERM') { @server.shutdown }
+    trap('INT') do
+      info "Shutting down"
+      @server.shutdown
+    end
+    trap('TERM') do
+      info "Shutting down"
+      @server.shutdown
+    end
   end
 end
 

@@ -1,6 +1,6 @@
-require_relative 'systemelement'
+require_relative 'system'
 
-class Dashboard < SystemElement
+class Dashboard < System
   PORT = 8080
 
   register '/' do |res|

@@ -1,6 +1,6 @@
-require_relative 'systemelement'
+require_relative 'system'
 
-class Controller < SystemElement
+class Controller < System
   PORT = 8070
 
   register '/' do |res|

@@ -13,12 +13,12 @@ class RemoteDashboardTest < Minitest::Test
   end
 
   def test_index
-    response = Net::HTTP.get_response(URI("http://localhost:#{RemoteDashboard.port}"))
+    response = Net::HTTP.get_response(URI("http://#{RemoteDashboard.host}:#{RemoteDashboard.port}"))
     assert_equal '200', response.code, "Remote dashboard index page should be accessible"
   end
 
   def test_wrong_endpoint
-    response = Net::HTTP.get_response(URI("http://localhost:#{RemoteDashboard.port}/wrong.json"))
+    response = Net::HTTP.get_response(URI("http://#{RemoteDashboard.host}:#{RemoteDashboard.port}/wrong.json"))
     assert_equal '404', response.code, "Remote dashboard wrong endpoint should return 404"
   end
 end

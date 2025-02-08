@@ -1,3 +1,5 @@
+ENV['NOF_VERBOSE'] = '4'
+
 # Start all server processes
 server_pids = %w[dash rash ctrl exec].map { |server| spawn("ruby #{server}.rb") }
 
