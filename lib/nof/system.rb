@@ -5,11 +5,18 @@ class System
 
   class << self
     def routes
+      # Get all routes from parent classes plus our own routes
+      ancestors.select { |a| a.respond_to?(:own_routes) }
+               .map(&:own_routes)
+               .reduce({}, &:merge)
+    end
+
+    def own_routes
       @routes ||= {}
     end
 
     def register(path, &block)
-      routes[path] = block
+      own_routes[path] = block
     end
 
     def host
@@ -49,20 +56,17 @@ class System
     $system_name = system_name
     info "Starting on #{self.class.host}:#{self.class.port}"
     @server = WEBrick::HTTPServer.new(self.class.server_config)
+    @activities = Activities.new
     setup_routes
     setup_shutdown_handlers
   end
 
   def system_name
     case self.class.name
-    when 'Controller'
-      'CTRL'
-    when 'RemoteDashboard'
-      'RASH'
-    when 'Dashboard'
-      'DASH'
-    else
-      self.class.name
+    when 'Controller' then 'CTRL'
+    when 'RemoteDashboard' then 'RASH'
+    when 'Dashboard' then 'DASH'
+    else self.class.name.upcase
     end
   end
   
@@ -101,6 +105,23 @@ class System
       info "Shutting down"
       @server.shutdown
     end
+  end
+
+  # Register common routes that all systems will have
+  register '/info.json' do |res|
+    res.body = JSON.generate({
+      name: $system_name,
+      version: '0.1.0'
+    })
+    res.content_type = 'application/json'
+  end
+
+  register '/status.json' do |res|
+    res.body = JSON.generate({
+      health: 'ok',
+      status: 'init'
+    })
+    res.content_type = 'application/json'
   end
 end
 

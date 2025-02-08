@@ -7,4 +7,9 @@ class Dashboard < System
     res.body = 'Dashboard Home'
     res.content_type = 'text/plain'
   end
+
+  register '/activities.json' do |res|
+    res.body = Activities.to_json
+    res.content_type = 'application/json'
+  end
 end
