@@ -16,6 +16,10 @@ class ControllerTest < Minitest::Test
     _get(Controller, path)
   end
 
+  def post(path = '', data = {})
+    _post(Controller, path, data)
+  end
+
   def test_index
     response = get
     assert_equal '200', response.code, "Controller index page should be accessible"
@@ -24,6 +28,11 @@ class ControllerTest < Minitest::Test
   def test_tasks_endpoint
     response = get('tasks.json')
     assert_equal '200', response.code, "Controller tasks endpoint should be accessible"
+    # should have a field include UUID, TYPE and OPTIONS
+    tasks = JSON.parse(response.body)
+    assert_equal true, tasks[0].key?('uuid'), "Tasks should have UUID field"
+    assert_equal true, tasks[0].key?('type'), "Tasks should have TYPE field"
+    assert_equal true, tasks[0].key?('opts'), "Tasks should have OPTIONS field"
   end
 
   def test_wrong_endpoint
@@ -50,5 +59,12 @@ class ControllerTest < Minitest::Test
     info = JSON.parse(response.body)
     assert_equal 'CTRL', info['name'], "Controller name should be CTRL"
     assert_equal '0.1.0', info['version'], "Controller version should be 0.1.0"
+  end
+
+  def test_report
+    response = post('report', {uuid: '123', result: 'ok'})
+    assert_equal '200', response.code, "Controller report endpoint should be accessible"
+    report = JSON.parse(response.body)
+    assert_equal 'ok', report['status'], "Report should be ok"
   end
 end

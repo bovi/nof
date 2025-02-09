@@ -17,7 +17,12 @@ class Controller < System
   end
 
   register '/tasks.json' do |req, res|
-    res.body = '[]'
+    res.body = '[{"uuid": "550e8400-e29b-41d4-a716-446655440000", "type": "task", "opts": {}}]'
+    res.content_type = 'application/json'
+  end
+
+  register '/report' do |req, res|
+    res.body = {"status" => "ok"}.to_json
     res.content_type = 'application/json'
   end
 end

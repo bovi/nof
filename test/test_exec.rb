@@ -5,19 +5,30 @@ class ExecutionTest < Minitest::Test
       Port: Controller.port,
       DocumentRoot: '.',
       Logger: WEBrick::Log.new(File::NULL),
-      AccessLog: [],
-      :StartCallback => proc { |server|
-        def server.access_log(config, req, res)
-          # no-op to suppress access logging
-        end
-      }
+      AccessLog: []
     )
     
     # Add a handler to track if executor makes request
     @request_made = false
+    @report_made = false
     @mock_server.mount_proc '/tasks.json' do |req, res|
       @request_made = true
-      res.body = '[{"uuid": "550e8400-e29b-41d4-a716-446655440000"}]'
+      data = { 'uuid' => '550e8400-e29b-41d4-a716-446655440000',
+               'type' => 'shell',
+               'opts' => {
+                'interval' => 1,
+                'cmd' => 'echo "Hello, World!"',
+                'pattern' => '(?<greeting>Hello)',
+                'template' => '{greeting}',
+               }
+             }
+      res.body = [data].to_json
+      res.content_type = 'application/json'
+    end
+    @mock_server.mount_proc '/report' do |req, res|
+      @report_made = true
+      @report_data = JSON.parse(req.body)
+      res.body = {'status' => 'ok'}.to_json
       res.content_type = 'application/json'
     end
 
@@ -40,5 +51,8 @@ class ExecutionTest < Minitest::Test
   def test_polls_controller
     sleep(3) # Give executor time to make request
     assert @request_made, "Executor should poll controller for tasks"
+    sleep(10) # Give executor time to run and report task
+    assert @report_made, "Executor should report task result"
+    assert_equal 'Hello', @report_data['result']
   end
 end
