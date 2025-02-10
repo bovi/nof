@@ -20,7 +20,14 @@ class Activities
       (@activities || []).find { |a| a[:uuid] == uuid }
     end
 
-    def add(uuid: nil, created_at: nil, action: nil, opt: {})
+    # add an activity to the activities
+    #
+    # uuid: the uuid of the activity (optional if we sync)
+    # created_at: the timestamp of the activity (optional if we sync)
+    # action: the action of the activity (mandatory)
+    # opt: the options of the activity
+    # from: :northbound or :southbound (the sync source - only if we sync)
+    def add(uuid: nil, created_at: nil, action: nil, opt: {}, from: nil)
       @activities ||= []
       @northbound_activities ||= []
       @southbound_activities ||= []
@@ -33,14 +40,27 @@ class Activities
       activity[:opt] = opt
 
       @activities << activity
-      @northbound_activities << activity
-      @southbound_activities << activity
+
+      # here we prepare the activities to be synced for the
+      # southbound or northbound system
+      #
+      # IMPORTANT:
+      # only add to the northbound or southbound activities
+      # if the source is not the same as the target system
+      @northbound_activities << activity unless from == :northbound
+      @southbound_activities << activity unless from == :southbound
 
       activity[:uuid]
     end
 
     # sync activities from another system
-    def sync(activities)
+    #
+    # activities: the activities to sync
+    # from: :northbound or :southbound (the sync source)
+    def sync(activities, from: nil)
+      raise ArgumentError, "from is required" unless from
+      debug "syncing activities from #{from}"
+
       activities.each do |activity|
         if self[activity['uuid']]
           err "activity already exists: #{activity['uuid']}"
@@ -58,12 +78,15 @@ class Activities
         debug "sync action: #{activity['action']} with opt: #{opt.inspect}"
         ret = own_actions[activity['action']].call(opt)
         debug "sync return: #{ret.inspect}"
+        debug "activity count before add: #{size}"
         ret = add(
           uuid: activity['uuid'],
           created_at: activity['created_at'],
           action: activity['action'],
-          opt: opt
+          opt: opt,
+          from: from
         )
+        debug "activity count after add: #{size}"
         debug "activities add: #{ret.inspect}"
       end
       activities.size

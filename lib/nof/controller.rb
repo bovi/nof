@@ -10,6 +10,8 @@ require_relative 'system'
 # Dashboard.
 class Controller < System
   PORT = 8070
+  NORTHBOUND_SYSTEM = :Dashboard
+  SYNC_INTERVAL = 5
 
   def setup
   end

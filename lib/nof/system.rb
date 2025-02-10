@@ -5,6 +5,7 @@ require 'webrick'
 # routes and provides several default routes.
 class System
   PORT = nil
+  NORTHBOUND_SYSTEM = nil
 
   class << self
     def routes
@@ -67,6 +68,7 @@ class System
     @activities = Activities.new
     setup_routes
     setup_shutdown_handlers
+    setup_sync_handlers
     setup
   end
 
@@ -104,6 +106,62 @@ class System
     res.body = 'Not Found'
     res.content_type = 'text/plain'
   end
+
+  def setup_sync_handlers
+    debug "Setting up sync handlers for #{self.class.name}"
+
+    # Start the sync thread
+    if self.class::NORTHBOUND_SYSTEM
+      if self.class::SYNC_INTERVAL.nil?
+        raise NotImplementedError, "SYNC_INTERVAL must be set for #{self.class.name}"
+      end
+      @sync_thread = Thread.new do
+        loop do
+          begin
+            sync_with_northbound_system
+            debug "sleeping for #{self.class::SYNC_INTERVAL} seconds"
+            sleep self.class::SYNC_INTERVAL
+          rescue => e
+            err "Sync failed: #{e.message}"
+            sleep self.class::SYNC_INTERVAL  # Still wait before retrying
+          end
+        end
+      end
+    end
+  end
+
+  def sync_with_northbound_system
+    debug "Syncing with #{self.class::NORTHBOUND_SYSTEM}"
+    northbound_class = Object.const_get(self.class::NORTHBOUND_SYSTEM)
+    debug "Northbound class: #{northbound_class.inspect}"
+    northbound_host = northbound_class.host
+    northbound_port = northbound_class.port
+
+    info "Syncing with #{northbound_class.name} at #{northbound_host}:#{northbound_port}..."
+
+    # Send all new activities to remote dashboard
+    uri = URI("http://#{northbound_host}:#{northbound_port}/activities/sync")
+    http = Net::HTTP.new(uri.host, uri.port)
+    request = Net::HTTP::Post.new(uri.path)
+    Activities.northbound_json! do |activities_json|
+      request.body = activities_json
+      response = http.request(request)
+      if response.is_a?(Net::HTTPSuccess)
+        debug "Response: #{response.body}"
+        new_activities = JSON.parse(response.body)['activities']
+        debug "New activities: #{new_activities.inspect}"
+        sync_num =  Activities.sync(new_activities, from: :northbound)
+        info "Synced #{sync_num} activities successfully"
+      else
+        err "Sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"
+        raise "Sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"
+      end
+    rescue Errno::ECONNREFUSED
+      info "#{northbound_class.name} not running for sync"
+    rescue => e
+      err "Sync failed: #{e.class}: #{e.message}"
+    end
+  end
   
   def setup_shutdown_handlers
     trap('INT') do
@@ -133,6 +191,16 @@ class System
       health: 'ok',
       status: 'init'
     })
+    res.content_type = 'application/json'
+  end
+
+  register '/activities.json' do |req, res|
+    res.body = Activities.to_json
+    res.content_type = 'application/json'
+  end
+
+  register '/tasktemplates.json' do |req, res|
+    res.body = TaskTemplates.to_json
     res.content_type = 'application/json'
   end
 end

@@ -4,7 +4,7 @@ desc 'Run integration tests (default)'
 task :test do
   ENV['NOF_VERBOSE'] = '2'
   begin
-    ruby 'test/test.rb'
+    ruby "test/test.rb"
   rescue Interrupt
     puts "\nGracefully shutting down..."
   end
@@ -14,7 +14,17 @@ desc 'Run integration tests with debug output'
 task :test_debug do
   ENV['NOF_VERBOSE'] = '4'
   begin
-    ruby 'test/test.rb'
+    ruby "test/test.rb"
+  rescue Interrupt
+    puts "\nGracefully shutting down..."
+  end
+end
+
+desc 'Run integration tests with debug output only for test_integration.rb'
+task :test_integration_debug do
+  ENV['NOF_VERBOSE'] = '4'
+  begin
+    ruby "test/test.rb test/test_integration.rb"
   rescue Interrupt
     puts "\nGracefully shutting down..."
   end

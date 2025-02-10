@@ -15,6 +15,14 @@ def _post(klass, path = '', body = {})
   Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
 end
 
+$system_name = 'TEST'
+
 # Require all test files in test directory
-Dir[File.join(File.dirname(__FILE__), 'test_*.rb')].each { |file| require_relative "../#{file}" }
+Dir[File.join(File.dirname(__FILE__), 'test_*.rb')].each do |file|
+  if ARGV.empty?
+    require_relative "../#{file}"
+  elsif ARGV.include?(file)
+    require_relative "../#{file}"
+  end
+end
 

@@ -42,7 +42,7 @@ class ControllerTest < Minitest::Test
 
   def test_activities
     response = get('activities.json')
-    assert_equal '404', response.code, "Controller activities endpoint should return 404"
+    assert_equal '200', response.code, "Controller activities endpoint should return 200"
   end
 
   def test_status
