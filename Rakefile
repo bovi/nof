@@ -2,7 +2,7 @@ require 'rake/testtask'
 
 desc 'Run integration tests (default)'
 task :test do
-  ENV['NOF_VERBOSE'] = '0'
+  ENV['NOF_VERBOSE'] = '2'
   begin
     ruby 'test/test.rb'
   rescue Interrupt

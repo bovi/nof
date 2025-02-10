@@ -11,13 +11,25 @@ require_relative 'system'
 class Controller < System
   PORT = 8070
 
+  def setup
+  end
+
   register '/' do |req, res|
     res.body = 'Controller Index'
     res.content_type = 'text/plain'
   end
 
   register '/tasks.json' do |req, res|
-    res.body = '[{"uuid": "550e8400-e29b-41d4-a716-446655440000", "type": "task", "opts": {}}]'
+    res.body = [
+      {
+        'uuid' => '550e8400-e29b-41d4-a716-446655440000',
+        'type' => 'shell',
+        'opts' => {
+          'cmd' => 'echo "Hello, World!"',
+          'interval' => 10
+        }
+      }
+    ].to_json
     res.content_type = 'application/json'
   end
 

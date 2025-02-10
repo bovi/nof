@@ -66,11 +66,13 @@ class DashboardTest < Minitest::Test
 
     # create a task template
     # by posting to /tasktemplates
-    response = post('tasktemplate', { "cmd" => "echo 'Hello, world!'",
+    response = post('tasktemplate', { "type" => "shell",
+                                      "cmd" => "echo 'Hello, world!'",
                                       "pattern" => "(\w+): (\d+)",
                                       "template" => "{name}: {value}" })
     assert_equal '200', response.code, "Task template should be created"
     task_template = JSON.parse(response.body)
+    assert_equal "shell", task_template['type']
     assert_equal "echo 'Hello, world!'", task_template['cmd']
     assert_equal "(\w+): (\d+)", task_template['format']['pattern']
     assert_equal "{name}: {value}", task_template['format']['template']
@@ -104,7 +106,8 @@ class DashboardTest < Minitest::Test
     assert_equal st, task_templates.size, "Task template should be deleted"
 
     # check the redirect features
-    response = post('tasktemplate', { "cmd" => "echo 'Hello, world!'",
+    response = post('tasktemplate', { "type" => "shell",
+                                      "cmd" => "echo 'Hello, world!'",
                                       "pattern" => "(\w+): (\d+)",
                                       "template" => "{name}: {value}",
                                       "return_url" => "/tasktemplates.html" })

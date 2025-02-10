@@ -50,11 +50,13 @@ class Executor
       else
         warn "Error getting tasks: #{response.code}"
       end
-    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, SocketError => e
-      warn "Could not reach controller: #{e.message}"
+    rescue Errno::ECONNREFUSED
+      info "Controller not running for polling"
+    rescue Errno::ETIMEDOUT, SocketError => e
+      warn "Controller timeout for polling: #{e.message}"
     end
   rescue StandardError => e
-    err "Error polling controller: #{e.message}"
+    err "Error polling controller: #{e.class}: #{e.message}"
   end
 
   def process_tasks(tasks)

@@ -54,6 +54,11 @@ class System
     end
   end
 
+  def setup
+    # nothing to do by default
+    raise NotImplementedError, "Subclasses must implement the setup method"
+  end
+
   def initialize
     raise "PORT must be set" if self.class.port.nil?
     $system_name = system_name
@@ -62,6 +67,7 @@ class System
     @activities = Activities.new
     setup_routes
     setup_shutdown_handlers
+    setup
   end
 
   def system_name

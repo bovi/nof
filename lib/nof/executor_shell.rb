@@ -44,7 +44,7 @@ class Executor
           warn "Error reporting result: #{response.code}" unless response.code == '200'
         end
       rescue StandardError => e
-        err "Task execution failed: #{e.message}"
+        err "Shell task execution failed: #{e.class}: #{e.message}"
       end
 
       sleep interval

@@ -5,11 +5,22 @@ require 'securerandom'
 # will be executed by the Executor.
 class TaskTemplates
   class << self
-    def add(uuid: nil, cmd: nil, format: nil)
+    def add(uuid: nil, type: nil, cmd: nil, format: nil)
       task = {}
       task[:uuid] = uuid || SecureRandom.uuid
-      raise ArgumentError, "cmd is required" unless cmd
-      task[:cmd] = cmd
+      raise ArgumentError, "type is required" unless type
+      task[:type] = type
+      if type == 'shell'
+        if cmd
+          task[:cmd] = cmd
+        else
+          err "cmd is required"
+          raise ArgumentError, "cmd is required"
+        end
+      else
+        err "unknown type: #{type}"
+        raise ArgumentError, "unknown type: #{type}"
+      end
       task[:format] = format || {}
 
       @task_templates ||= []
@@ -28,6 +39,7 @@ class TaskTemplates
 
     def delete(uuid)
       (@task_templates || []).delete_if { |t| t[:uuid] == uuid }
+      {uuid: uuid}
     end
 
     def inspect
@@ -47,6 +59,7 @@ end
 Activities.register("tasktemplate_add") do |hsh|
   TaskTemplates.add(
     uuid: hsh[:uuid],
+    type: hsh[:type],
     cmd: hsh[:cmd],
     format: hsh[:format]
   )
