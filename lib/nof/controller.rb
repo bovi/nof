@@ -11,6 +11,7 @@ require_relative 'system'
 class Controller < System
   PORT = 8070
   NORTHBOUND_SYSTEM = :Dashboard
+  SOUTHBOUND_SYSTEM = :Executor
   SYNC_INTERVAL = 5
 
   def setup

@@ -1,5 +1,6 @@
 class ExecutionTest < Minitest::Test
   def setup
+    delete_all_db_files
     # Mock the controller server response with silent logging
     @mock_server = WEBrick::HTTPServer.new(
       Port: Controller.port,
@@ -37,7 +38,7 @@ class ExecutionTest < Minitest::Test
     
     # Start the executor with output redirected to /dev/null
     @executor_pid = spawn('ruby exec.rb')
-    sleep(2) # Give time to start up
+    wait_for_startup
   end
 
   def teardown
@@ -46,12 +47,13 @@ class ExecutionTest < Minitest::Test
     Process.wait(@executor_pid)
     @mock_server.shutdown
     @server_thread.join
+    wait_for_shutdown
   end
 
   def test_polls_controller
-    sleep(3) # Give executor time to make request
+    wait_for_sync(Executor)
     assert @request_made, "Executor should poll controller for tasks"
-    sleep(10) # Give executor time to run and report task
+    wait_for_sync(Executor)
     assert @report_made, "Executor should report task result"
     assert_equal 'Hello', @report_data['result']
   end

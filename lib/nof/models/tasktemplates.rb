@@ -3,8 +3,17 @@ require 'securerandom'
 # A template which can be used to in combination
 # with a Host to create a Task. Such a task instance
 # will be executed by the Executor.
-class TaskTemplates
+class TaskTemplates < Model
   class << self
+    def setup_table
+      db.create_table('tasktemplates', [
+        'uuid',
+        'type',
+        'cmd',
+        'format'
+      ])
+    end
+
     def add(uuid: nil, type: nil, cmd: nil, format: nil)
       task = {}
       task[:uuid] = uuid || SecureRandom.uuid
@@ -23,35 +32,46 @@ class TaskTemplates
       end
       task[:format] = format || {}
 
-      @task_templates ||= []
-      @task_templates << task
+      db.execute("INSERT INTO tasktemplates (uuid, type, cmd, format) VALUES (?, ?, ?, ?)",
+                 task[:uuid], task[:type], task[:cmd], task[:format].to_json)
 
       task
     end
 
     def size
-      (@task_templates || []).size
+      db.count("tasktemplates")
     end
 
     def get(uuid)
-      (@task_templates || []).find { |t| t[:uuid] == uuid }
+      ret = db.execute("SELECT * FROM tasktemplates WHERE uuid = ?", uuid)
+      ret = ret.map do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:format] = JSON.parse(row[:format]).transform_keys(&:to_sym)
+        row
+      end
+      ret.first
     end
 
     def delete(uuid)
-      (@task_templates || []).delete_if { |t| t[:uuid] == uuid }
+      debug "delete: #{uuid.inspect}"
+      ret = db.execute("DELETE FROM tasktemplates WHERE uuid = '#{uuid}'")
       {uuid: uuid}
     end
 
     def inspect
-      (@task_templates || []).inspect
+      db.execute("SELECT * FROM tasktemplates").inspect
     end
 
     def to_json
-      (@task_templates || []).to_json
+      db.execute("SELECT * FROM tasktemplates").map do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:format] = JSON.parse(row[:format]).transform_keys(&:to_sym)
+        row
+      end.to_json
     end
 
     def all
-      (@task_templates || [])
+      db.execute("SELECT * FROM tasktemplates")
     end
   end
 end

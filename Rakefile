@@ -30,6 +30,16 @@ task :test_integration_debug do
   end
 end
 
+desc 'Run database tests'
+task :test_db do
+  ENV['NOF_VERBOSE'] = '4'
+  begin
+    ruby "test/test.rb test/test_db.rb"
+  rescue Interrupt
+    puts "\nGracefully shutting down..."
+  end
+end
+
 desc 'Start the system for interactive use'
 task :start do
   begin

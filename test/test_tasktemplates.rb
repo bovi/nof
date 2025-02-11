@@ -1,4 +1,12 @@
 class TestTaskTemplates < Minitest::Test
+  def setup
+    init_model_db
+  end
+
+  def teardown
+    delete_model_db
+  end
+
   def test_add
     s = TaskTemplates.size
     TaskTemplates.add(uuid: "123", cmd: "echo 'Hello, world!'", type: "shell",

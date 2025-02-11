@@ -64,7 +64,28 @@ class System
     raise "PORT must be set" if self.class.port.nil?
     $system_name = system_name
     info "Starting on #{self.class.host}:#{self.class.port}"
-    @server = WEBrick::HTTPServer.new(self.class.server_config)
+
+    begin
+      ObjectSpace.each_object(Class).select do |c|
+        c < Model
+      end.each do |model|
+        model.setup_table
+      end
+    rescue => e
+      err "Failed to setup tables: #{e.class}: #{e.message}"
+      exit 1
+    end
+
+    begin
+      @server = WEBrick::HTTPServer.new(self.class.server_config)
+    rescue Errno::EADDRINUSE
+      err "Port #{self.class.port} is already in use"
+      exit 1
+    rescue => e
+      err "Failed to start: #{e.class}: #{e.message}"
+      exit 1
+    end
+
     @activities = Activities.new
     setup_routes
     setup_shutdown_handlers
@@ -139,11 +160,13 @@ class System
     http = Net::HTTP.new(uri.host, uri.port)
     request = Net::HTTP::Post.new(uri.path)
     Activities.northbound_json! do |activities_json|
+      debug "syncing activities: #{activities_json}"
       request.body = activities_json
       response = http.request(request)
+      debug "sync response: #{response.body}"
       if response.is_a?(Net::HTTPSuccess)
         new_activities = JSON.parse(response.body)['activities']
-        sync_num =  Activities.sync(new_activities, from: :northbound)
+        sync_num =  Activities.sync(new_activities, source: :northbound)
         info "Synced #{sync_num} activities successfully"
       else
         err "Sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"

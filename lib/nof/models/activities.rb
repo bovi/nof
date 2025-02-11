@@ -6,8 +6,32 @@ require 'securerandom'
 # but also to synchronize the systems
 # e.g. a change on the Dashboard should be reflected
 # on the Controller and the RemoteDashboard
-class Activities
+class Activities < Model
   class << self
+    def setup_table
+      db.create_table('activities', [
+        'uuid',
+        'created_at',
+        'action',
+        'opt',
+        'source'
+      ])
+
+      db.create_table('activities_northbound', [
+        'uuid',
+        'created_at',
+        'action',
+        'opt'
+      ])
+
+      db.create_table('activities_southbound', [
+        'uuid',
+        'created_at',
+        'action',
+        'opt'
+      ])
+    end
+
     def register(action, &block)
       own_actions[action] = block
     end
@@ -17,7 +41,14 @@ class Activities
     end
 
     def [](uuid)
-      (@activities || []).find { |a| a[:uuid] == uuid }
+      #(@activities || []).find { |a| a[:uuid] == uuid }
+      ret = db.execute("SELECT * FROM activities WHERE uuid = ?", uuid)
+      ret = ret.map do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        row
+      end
+      ret.first
     end
 
     # add an activity to the activities
@@ -26,11 +57,11 @@ class Activities
     # created_at: the timestamp of the activity (optional if we sync)
     # action: the action of the activity (mandatory)
     # opt: the options of the activity
-    # from: :northbound or :southbound (the sync source - only if we sync)
-    def add(uuid: nil, created_at: nil, action: nil, opt: {}, from: nil)
-      @activities ||= []
-      @northbound_activities ||= []
-      @southbound_activities ||= []
+    # source: :northbound or :southbound (the sync source - only if we sync)
+    def add(uuid: nil, created_at: nil, action: nil, opt: {}, source: nil)
+      #@activities ||= []
+      #@northbound_activities ||= []
+      #@southbound_activities ||= []
 
       activity = {}
       activity[:uuid] = uuid || SecureRandom.uuid
@@ -39,7 +70,12 @@ class Activities
       activity[:action] = action
       activity[:opt] = opt
 
-      @activities << activity
+      #@activities << activity
+     
+      debug "size before insert: #{size}"
+      db.execute("INSERT INTO activities (uuid, created_at, action, opt, source) VALUES (?, ?, ?, ?, ?)",
+                 activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json, activity[:source])
+      debug "size after insert: #{size}"
 
       # here we prepare the activities to be synced for the
       # southbound or northbound system
@@ -47,8 +83,16 @@ class Activities
       # IMPORTANT:
       # only add to the northbound or southbound activities
       # if the source is not the same as the target system
-      @northbound_activities << activity unless from == :northbound
-      @southbound_activities << activity unless from == :southbound
+      #@northbound_activities << activity unless source == :northbound
+      #@southbound_activities << activity unless source == :southbound
+      unless source == :northbound
+        db.execute("INSERT INTO activities_northbound (uuid, created_at, action, opt) VALUES (?, ?, ?, ?)",
+                   activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json)
+      end
+      unless source == :southbound
+        db.execute("INSERT INTO activities_southbound (uuid, created_at, action, opt) VALUES (?, ?, ?, ?)",
+                   activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json)
+      end
 
       activity[:uuid]
     end
@@ -56,10 +100,10 @@ class Activities
     # sync activities from another system
     #
     # activities: the activities to sync
-    # from: :northbound or :southbound (the sync source)
-    def sync(activities, from: nil)
-      raise ArgumentError, "from is required" unless from
-      debug "syncing activities from #{from}"
+    # source: :northbound or :southbound (the sync source)
+    def sync(activities, source: nil)
+      raise ArgumentError, "source is required" unless source
+      debug "syncing activities from #{source}"
 
       activities.each do |activity|
         if self[activity['uuid']]
@@ -81,35 +125,66 @@ class Activities
           created_at: activity['created_at'],
           action: activity['action'],
           opt: opt,
-          from: from
+          source: source
         )
       end
       activities.size
     end
 
     def size
-      (@activities || []).size
+      #(@activities || []).size
+      db.count("activities")
     end
 
     def to_json
-      (@activities || []).to_json
+      #(@activities || []).to_json
+      db.execute("SELECT * FROM activities").map do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        row
+      end.to_json
     end
 
     def northbound_json! &block
-      json = (@northbound_activities || []).to_json
+      #json = (@northbound_activities || []).to_json
+      #yield json
+      #@northbound_activities = []
+      json = db.execute("SELECT * FROM activities_northbound").map do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        row
+      end.to_json
       yield json
-      @northbound_activities = []
+      db.execute("DELETE FROM activities_northbound")
     end
 
     def southbound_json! &block
-      json = (@southbound_activities || []).to_json
-      @southbound_activities = []
-      json
+      #json = (@southbound_activities || []).to_json
+      #@southbound_activities = []
+      #json
+      json = db.execute("SELECT * FROM activities_southbound").map do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        row
+      end.to_json
+      yield json
+      db.execute("DELETE FROM activities_southbound")
     end
 
     def southbound_raw!
-      raw = (@southbound_activities || [])
-      @southbound_activities = []
+      #raw = (@southbound_activities || [])
+      #@southbound_activities = []
+      #raw
+      raw = db.execute("SELECT * FROM activities_southbound")
+      debug "!!! southbound raw: #{raw}"
+      raw = raw.map do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        row
+      end
+      debug "!!! southbound raw after transform: #{raw}"
+      db.execute("DELETE FROM activities_southbound")
+      debug "!!! southbound raw after delete: #{raw}"
       raw
     end
 

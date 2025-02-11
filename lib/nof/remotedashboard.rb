@@ -11,6 +11,7 @@ class RemoteDashboard < Dashboard
   PORT = 8090
   SYNC_INTERVAL = nil
   NORTHBOUND_SYSTEM = nil
+  SOUTHBOUND_SYSTEM = :Dashboard
 
   def setup
   end

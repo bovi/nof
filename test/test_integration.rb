@@ -1,11 +1,13 @@
 class IntegrationTest < Minitest::Test
   def setup
+    delete_all_db_files
+
     @controller_pid = spawn('ruby ctrl.rb')
     @dashboard_pid = spawn('ruby dash.rb')
     @rash_pid = spawn('ruby rash.rb')
     @executor_pid = spawn('ruby exec.rb')
 
-    sleep 2
+    wait_for_startup
   end
 
   def teardown
@@ -18,6 +20,8 @@ class IntegrationTest < Minitest::Test
     Process.wait(@dashboard_pid)
     Process.wait(@rash_pid)
     Process.wait(@executor_pid)
+
+    wait_for_shutdown
   end
 
   def test_tasktemplate_sync_between_dashboard_and_remotedashboard
@@ -71,7 +75,7 @@ class IntegrationTest < Minitest::Test
     assert_equal '{greeting}', task_template['format']['template']
 
     # check that it is available in the Dashboard
-    sleep Dashboard::SYNC_INTERVAL + 1 # wait for the sync to the Dashboard
+    wait_for_sync(Dashboard)
 
     # check if activity was synced
     response = _get(Dashboard, '/activities.json')
@@ -98,7 +102,7 @@ class IntegrationTest < Minitest::Test
                  "Activity should still be the same as before"
 
     # wait for another sync cycle to ensure that duplicate activities are not added
-    sleep Dashboard::SYNC_INTERVAL + 1
+    wait_for_sync(Dashboard)
 
     response = _get(RemoteDashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -149,7 +153,7 @@ class IntegrationTest < Minitest::Test
                  "Activity should be created"
 
     # wait for the controller to sync the activity
-    sleep Controller::SYNC_INTERVAL + 1
+    wait_for_sync(Controller)
 
     # check activity count on controller
     response = _get(Controller, '/activities.json')
@@ -170,7 +174,7 @@ class IntegrationTest < Minitest::Test
     assert_equal '{greeting}', task_template['format']['template']
 
     # wait for another sync cycle to ensure that duplicate activities are not added
-    sleep Controller::SYNC_INTERVAL + 1
+    wait_for_sync(Controller)
 
     # check activity count on dashboard
     response = _get(Dashboard, '/activities.json')
@@ -209,8 +213,8 @@ class IntegrationTest < Minitest::Test
     uuid = task_template['uuid']
     
     # wait for the sync to the Controller
-    sleep Dashboard::SYNC_INTERVAL
-    sleep Controller::SYNC_INTERVAL + 1
+    wait_for_sync(Dashboard)
+    wait_for_sync(Controller)
 
     # check activity count on controller
     response = _get(Controller, '/activities.json')

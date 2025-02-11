@@ -11,6 +11,8 @@ require_relative 'executor_shell'
 # from the Controller. The same interface
 # is used to report the results.
 class Executor
+  SYNC_INTERVAL = 5
+
   def initialize
     $system_name = 'EXEC'
     @running = true
@@ -23,7 +25,7 @@ class Executor
   end
 
   def self.interval
-    ENV['EXECUTOR_INTERVAL']&.to_i || 5
+    ENV['EXECUTOR_INTERVAL']&.to_i || SYNC_INTERVAL
   end
 
   def running?

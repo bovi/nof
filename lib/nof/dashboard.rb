@@ -13,6 +13,7 @@ require_relative 'system'
 class Dashboard < System
   PORT = 8080
   NORTHBOUND_SYSTEM = :RemoteDashboard
+  SOUTHBOUND_SYSTEM = :Controller
   SYNC_INTERVAL = 5
 
   def setup
@@ -24,10 +25,13 @@ class Dashboard < System
     activities = []
     begin
       new_activities = JSON.parse(req.body)
-      synced_num = Activities.sync(new_activities, from: :southbound)
+      debug "!!! start sync at Dashboard"
+      synced_num = Activities.sync(new_activities, source: :southbound)
       status = 'ok'
       message = "Activities synced successfully: #{synced_num}"
+      debug "!!! get southbound activities"
       activities = Activities.southbound_raw!
+      debug "!!! activities: #{activities}"
     rescue => e
       err "Sync failed: #{e.message}"
       status = 'error'
@@ -69,9 +73,10 @@ class Dashboard < System
   end
 
   register '/tasktemplate/delete' do |req, res|
+    debug "tasktemplate/delete"
     params = req.query
     Activities.tasktemplate_delete(uuid: params['uuid'])
-    
+    debug "tasktemplate/delete: #{params['uuid']}"
     if params['return_url']
       res.status = 302
       res['Location'] = params['return_url']

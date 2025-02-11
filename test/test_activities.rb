@@ -1,4 +1,12 @@
 class TestActivities < Minitest::Test
+  def setup
+    init_model_db
+  end
+
+  def teardown
+    delete_model_db
+  end
+
   def test_add
     sa = Activities.size
     Activities.add(action: "test")

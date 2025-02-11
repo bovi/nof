@@ -1,15 +1,17 @@
 class ControllerTest < Minitest::Test
   def setup
+    delete_all_db_files
     # Start the controller server with output redirected to /dev/null
     @controller_pid = spawn('ruby ctrl.rb')
     # Give the server a moment to start
-    sleep(2)
+    wait_for_startup
   end
 
   def teardown
     # Shutdown the controller server
     Process.kill('INT', @controller_pid)
     Process.wait(@controller_pid)
+    wait_for_shutdown
   end
 
   def get(path = '')
