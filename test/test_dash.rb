@@ -112,7 +112,8 @@ class DashboardTest < Minitest::Test
                                       "template" => "{name}: {value}",
                                       "return_url" => "/tasktemplates.html" })
     assert_equal '302', response.code, "Redirect should be returned"
-    assert_equal "http://#{Dashboard.host}:#{Dashboard.port}/tasktemplates.html", response['Location'], "Redirect should be to /tasktemplates.html"
+    assert_equal "http://#{Dashboard.host}:#{Dashboard.port}/tasktemplates.html", response['Location'],
+                 "Redirect should be to /tasktemplates.html"
 
     # check if the task template was created
     response = get('tasktemplates.json')
@@ -131,8 +132,9 @@ class DashboardTest < Minitest::Test
     response = post('tasktemplate/delete', { "uuid" => task_template['uuid'],
                                              "return_url" => "/tasktemplates.html" })
     assert_equal '302', response.code, "Redirect should be returned"
-    assert_equal "http://#{Dashboard.host}:#{Dashboard.port}/tasktemplates.html", response['Location'], "Redirect should be to /tasktemplates.html"
-    
+    assert_equal "http://#{Dashboard.host}:#{Dashboard.port}/tasktemplates.html", response['Location'],
+                 "Redirect should be to /tasktemplates.html"
+
     # check if the task template was deleted
     response = get('tasktemplates.json')
     assert_equal '200', response.code, "Task templates page should be accessible"

@@ -24,11 +24,9 @@ class Dashboard < System
     activities = []
     begin
       new_activities = JSON.parse(req.body)
-      debug "new_activities: #{new_activities.inspect}"
       synced_num = Activities.sync(new_activities, from: :southbound)
       status = 'ok'
       message = "Activities synced successfully: #{synced_num}"
-      info "Synced #{synced_num} activities successfully"
       activities = Activities.southbound_raw!
     rescue => e
       err "Sync failed: #{e.message}"

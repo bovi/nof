@@ -75,10 +75,7 @@ class Activities
             end
           end
         end
-        debug "sync action: #{activity['action']} with opt: #{opt.inspect}"
         ret = own_actions[activity['action']].call(opt)
-        debug "sync return: #{ret.inspect}"
-        debug "activity count before add: #{size}"
         ret = add(
           uuid: activity['uuid'],
           created_at: activity['created_at'],
@@ -86,8 +83,6 @@ class Activities
           opt: opt,
           from: from
         )
-        debug "activity count after add: #{size}"
-        debug "activities add: #{ret.inspect}"
       end
       activities.size
     end

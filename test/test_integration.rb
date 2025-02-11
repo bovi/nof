@@ -21,8 +21,6 @@ class IntegrationTest < Minitest::Test
   end
 
   def test_tasktemplate_sync_between_dashboard_and_remotedashboard
-    debug "start(test_tasktemplate_sync_between_dashboard_and_remotedashboard)"
-
     # get initial size of dashboard activities
     response = _get(Dashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -73,7 +71,6 @@ class IntegrationTest < Minitest::Test
     assert_equal '{greeting}', task_template['format']['template']
 
     # check that it is available in the Dashboard
-    debug "waiting for sync with dashboard"
     sleep Dashboard::SYNC_INTERVAL + 1 # wait for the sync to the Dashboard
 
     # check if activity was synced
@@ -86,8 +83,6 @@ class IntegrationTest < Minitest::Test
     response = _get(Dashboard, '/tasktemplates.json')
     assert_equal '200', response.code, "Task templates should be accessible"
     task_templates = JSON.parse(response.body)
-    debug "task_templates: #{task_templates.inspect}"
-    debug "uuid: #{uuid}"
     task_template = task_templates.find { |t| t['uuid'] == uuid }
     refute_nil task_template, "Task template should be synced to the Dashboard"
     assert_equal uuid, task_template['uuid']
@@ -116,13 +111,9 @@ class IntegrationTest < Minitest::Test
     activities = JSON.parse(response.body)
     assert_equal expected_dashboard_activities, activities.size,
                  "Activity should still be the same as before even after the second sync"
-
-    debug "end(test_tasktemplate_sync_between_dashboard_and_remotedashboard)"
   end
 
   def test_task_sync_between_controller_and_dashboard
-    debug "start(test_task_sync_between_controller_and_dashboard)"
-
     # get initial size of dashboard activities
     response = _get(Dashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -194,13 +185,57 @@ class IntegrationTest < Minitest::Test
     activities = JSON.parse(response.body)
     assert_equal expected_controller_activities, activities.size,
                  "Activity should still be the same as before even after the second sync"
-
-    debug "end(test_task_sync_between_controller_and_dashboard)"
   end
 
   def test_task_sync_between_controller_and_remotedashboard
-    debug "start(test_task_sync_between_controller_and_remotedashboard)"
+    # get initial size of controller activities
+    response = _get(Controller, '/activities.json')
+    assert_equal '200', response.code, "Activities should be accessible"
+    activities = JSON.parse(response.body)
+    ca = activities.size
+    expected_controller_activities = ca + 1
+    
+    # add tasktemplate to Remote Dashboard
+    new_tasktemplate_response = _post(RemoteDashboard,
+                                     '/tasktemplate',
+                                     {
+                                       'type' => 'shell',
+                                       'cmd' => 'echo "Hello, World!"',
+                                       'pattern' => '(?<greeting>Hello)',
+                                       'template' => '{greeting}'
+                                     })
+    assert_equal '200', new_tasktemplate_response.code, "Task template should be created"
+    task_template = JSON.parse(new_tasktemplate_response.body)
+    uuid = task_template['uuid']
+    
+    # wait for the sync to the Controller
+    sleep Dashboard::SYNC_INTERVAL
+    sleep Controller::SYNC_INTERVAL + 1
 
-    debug "end(test_task_sync_between_controller_and_remotedashboard)"
+    # check activity count on controller
+    response = _get(Controller, '/activities.json')
+    assert_equal '200', response.code, "Activities should be accessible"
+    activities = JSON.parse(response.body)
+    assert_equal expected_controller_activities, activities.size,
+                 "Activity should be synced to the Controller"
+
+    # check activity count on Controller
+    response = _get(Controller, '/activities.json')
+    assert_equal '200', response.code, "Activities should be accessible"
+    activities = JSON.parse(response.body)
+    assert_equal expected_controller_activities, activities.size,
+                 "Activity should be synced to the Controller"
+
+    # check task template on Controller
+    response = _get(Controller, '/tasktemplates.json')
+    assert_equal '200', response.code, "Task templates should be accessible"
+    task_templates = JSON.parse(response.body)
+    task_template = task_templates.find { |t| t['uuid'] == uuid }
+    refute_nil task_template, "Task template should be synced to the Controller"
+    assert_equal uuid, task_template['uuid']
+    assert_equal 'shell', task_template['type']
+    assert_equal 'echo "Hello, World!"', task_template['cmd']
+    assert_equal '(?<greeting>Hello)', task_template['format']['pattern']
+    assert_equal '{greeting}', task_template['format']['template']
   end
 end

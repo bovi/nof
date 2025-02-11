@@ -108,8 +108,6 @@ class System
   end
 
   def setup_sync_handlers
-    debug "Setting up sync handlers for #{self.class.name}"
-
     # Start the sync thread
     if self.class::NORTHBOUND_SYSTEM
       if self.class::SYNC_INTERVAL.nil?
@@ -119,7 +117,6 @@ class System
         loop do
           begin
             sync_with_northbound_system
-            debug "sleeping for #{self.class::SYNC_INTERVAL} seconds"
             sleep self.class::SYNC_INTERVAL
           rescue => e
             err "Sync failed: #{e.message}"
@@ -131,9 +128,7 @@ class System
   end
 
   def sync_with_northbound_system
-    debug "Syncing with #{self.class::NORTHBOUND_SYSTEM}"
     northbound_class = Object.const_get(self.class::NORTHBOUND_SYSTEM)
-    debug "Northbound class: #{northbound_class.inspect}"
     northbound_host = northbound_class.host
     northbound_port = northbound_class.port
 
@@ -147,9 +142,7 @@ class System
       request.body = activities_json
       response = http.request(request)
       if response.is_a?(Net::HTTPSuccess)
-        debug "Response: #{response.body}"
         new_activities = JSON.parse(response.body)['activities']
-        debug "New activities: #{new_activities.inspect}"
         sync_num =  Activities.sync(new_activities, from: :northbound)
         info "Synced #{sync_num} activities successfully"
       else
