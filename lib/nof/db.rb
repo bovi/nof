@@ -60,16 +60,8 @@ class Database
   end
 
   def execute(sql, *args)
-    debug "execute: #{sql}, #{args.inspect}"
     @pool.with_connection do |conn|
-      case args.size
-      when 0
-        conn.execute(sql)
-      when 1
-        conn.execute(sql, args[0])
-      else
-        conn.execute(sql, *args) 
-      end
+      conn.execute(sql, args) 
     end
   end
 
