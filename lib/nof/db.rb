@@ -14,7 +14,6 @@ class ConnectionPool
       conn.execute("PRAGMA busy_timeout = 5000")
       # Configure result handling
       conn.results_as_hash = true  # Return results as hashes instead of arrays
-      conn.type_translation = true # Translate SQLite types to Ruby types
       @pool << conn
     }
   end
