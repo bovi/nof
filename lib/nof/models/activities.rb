@@ -143,7 +143,10 @@ class Activities < Model
     def northbound_json! &block
       json = db.execute("SELECT * FROM activities_northbound").map do |row|
         row = row.transform_keys(&:to_sym)
-        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        opt = JSON.parse(row[:opt])
+        unless opt.empty?
+          row[:opt] = opt.transform_keys(&:to_sym)
+        end
         row
       end.to_json
       yield json
@@ -161,7 +164,10 @@ class Activities < Model
     def southbound_json! &block
       json = db.execute("SELECT * FROM activities_southbound").map do |row|
         row = row.transform_keys(&:to_sym)
-        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        opt = JSON.parse(row[:opt])
+        unless opt.empty?
+          row[:opt] = opt.transform_keys(&:to_sym)
+        end
         row
       end.to_json
       yield json
@@ -172,7 +178,10 @@ class Activities < Model
       raw = db.execute("SELECT * FROM activities_southbound")
       raw = raw.map do |row|
         row = row.transform_keys(&:to_sym)
-        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        opt = JSON.parse(row[:opt])
+        unless opt.empty?
+          row[:opt] = opt.transform_keys(&:to_sym)
+        end
         row
       end
       db.execute("DELETE FROM activities_southbound")

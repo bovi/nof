@@ -55,7 +55,6 @@ class TaskTemplates < Model
     end
 
     def delete(uuid)
-      debug "delete: #{uuid.inspect}"
       ret = db.execute("DELETE FROM tasktemplates WHERE uuid = '#{uuid}'")
       {uuid: uuid}
     end

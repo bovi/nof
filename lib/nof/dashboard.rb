@@ -70,10 +70,8 @@ class Dashboard < System
   end
 
   register '/tasktemplate/delete' do |req, res|
-    debug "tasktemplate/delete"
     params = req.query
     Activities.tasktemplate_delete(uuid: params['uuid'])
-    debug "tasktemplate/delete: #{params['uuid']}"
     if params['return_url']
       res.status = 302
       res['Location'] = params['return_url']
@@ -84,6 +82,41 @@ class Dashboard < System
 
   register '/tasktemplates.html' do |req, res|
     template = File.read(File.join(__dir__, 'views', 'tasktemplate.erb'))
+    res.body = ERB.new(template).result(binding)
+    res.content_type = 'text/html'
+  end
+
+  register '/hosts.json' do |req, res|
+    hosts = Hosts.all
+    res.body = hosts.to_json
+    res.content_type = 'application/json'
+  end
+
+  register '/host' do |req, res|
+    params = req.query
+    _, host = Activities.host_add(hostname: params['hostname'], ip: params['ip'])
+    if params['return_url']
+      res.status = 302
+      res['Location'] = params['return_url']
+    else
+      res.body = host.to_json
+      res.content_type = 'application/json'
+    end
+  end
+
+  register '/host/delete' do |req, res|
+    params = req.query
+    Activities.host_delete(uuid: params['uuid'])
+    if params['return_url']
+      res.status = 302
+      res['Location'] = params['return_url']
+    else
+      res.status = 200
+    end
+  end
+
+  register '/hosts.html' do |req, res|
+    template = File.read(File.join(__dir__, 'views', 'host.erb'))
     res.body = ERB.new(template).result(binding)
     res.content_type = 'text/html'
   end

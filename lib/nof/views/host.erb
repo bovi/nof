@@ -1,0 +1,60 @@
+<DOCTYPE html>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Hosts</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    .host { border: 1px solid #ccc; padding: 1em; margin: 1em 0; }
+    form { margin: 2em 0; }
+    label { display: block; margin: 0.5em 0; }
+    input { width: 100%; padding: 0.5em; }
+    button { padding: 0.5em 1em; }
+    .delete-button { 
+      background-color: #ff4444; 
+      color: white; 
+      border: none;
+      float: right;
+      width: auto;
+    }
+    .host-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Hosts</h1>
+
+  <form action="/host" method="POST">
+    <h2>Add New Host</h2>
+    
+    <label for="hostname">Hostname:</label>
+    <input type="text" id="hostname" name="hostname" required>
+    
+    <label for="ip">IP Address:</label>
+    <input type="text" id="ip" name="ip" required>
+
+    <input type="hidden" name="return_url" value="/hosts.html">
+    <button type="submit">Add Host</button>
+  </form>
+
+  <h2>Existing Hosts</h2>
+  <div id="host-list">
+    <% Hosts.all.each do |host| %>
+      <div class="host">
+        <div class="host-header">
+          <h3>Hostname: <%= host['hostname'] %></h3>
+          <form action="/host/delete" method="POST" style="margin: 0;">
+            <input type="hidden" name="uuid" value="<%= host['uuid'] %>">
+            <input type="hidden" name="return_url" value="/hosts.html">
+            <button type="submit" class="delete-button">Delete</button>
+          </form>
+        </div>
+        <p>IP Address: <%= host['ip'] %></p>
+      </div>
+    <% end %>
+  </div>
+</body>
+</html>

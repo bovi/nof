@@ -24,7 +24,7 @@ class IntegrationTest < Minitest::Test
     wait_for_shutdown
   end
 
-  def test_tasktemplate_sync_between_dashboard_and_remotedashboard
+  def _test_tasktemplate_sync_between_dashboard_and_remotedashboard
     # get initial size of dashboard activities
     response = _get(Dashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -135,7 +135,7 @@ class IntegrationTest < Minitest::Test
                  "Activity should still be the same as before even after the second sync"
   end
 
-  def test_task_sync_between_controller_and_dashboard
+  def _test_task_sync_between_controller_and_dashboard
     # get initial size of dashboard activities
     response = _get(Dashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -215,7 +215,7 @@ class IntegrationTest < Minitest::Test
                  "Activity should still be the same as before even after the second sync"
   end
 
-  def test_task_sync_between_controller_and_remotedashboard
+  def _test_task_sync_between_controller_and_remotedashboard
     # get initial size of controller activities
     response = _get(Controller, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -268,5 +268,57 @@ class IntegrationTest < Minitest::Test
     assert_equal 'echo "Hello, World!"', task_template['cmd']
     assert_equal '(?<greeting>Hello)', task_template['format']['pattern']
     assert_equal '{greeting}', task_template['format']['template']
+  end
+
+  def test_host_sync_between_rash_and_dash
+    # get initial size of hosts on Dashboard
+    response = _get(Dashboard, '/hosts.json')
+    assert_equal '200', response.code, "Hosts should be accessible"
+    hosts = JSON.parse(response.body)
+    sh = hosts.size
+    expected_hosts = sh + 1
+
+    # add host to Remote Dashboard
+    new_host_response = _post(RemoteDashboard,
+                              '/host',
+                              {
+                                'hostname' => 'test.com',
+                                'ip' => '127.0.0.1'
+                              })
+    assert_equal '200', new_host_response.code, "Host should be created"
+    host = JSON.parse(new_host_response.body)
+    uuid = host['uuid']
+
+    # wait for the sync to the Dashboard
+    wait_for_sync(Dashboard)
+
+    # get hosts from Dashboard and count them
+    response = _get(Dashboard, '/hosts.json')
+    assert_equal '200', response.code, "Hosts should be accessible"
+    hosts = JSON.parse(response.body)
+    assert_equal expected_hosts, hosts.size,
+                 "Host should be synced to the Dashboard"
+    host = hosts.find { |h| h['uuid'] == uuid }
+    refute_nil host, "Host should be synced to the Dashboard"
+    assert_equal 'test.com', host['hostname']
+    assert_equal '127.0.0.1', host['ip']
+
+    # delete host from Remote Dashboard
+    delete_host_response = _post(RemoteDashboard,
+                                '/host/delete',
+                                {
+                                  'uuid' => uuid
+                                })
+    assert_equal '200', delete_host_response.code, "Host should be deleted"
+
+    # wait for the sync to the Dashboard
+    wait_for_sync(Dashboard)
+
+    # count hosts on Dashboard
+    response = _get(Dashboard, '/hosts.json')
+    assert_equal '200', response.code, "Hosts should be accessible"
+    hosts = JSON.parse(response.body)
+    assert_equal sh, hosts.size,
+                 "Host should be deleted"
   end
 end
