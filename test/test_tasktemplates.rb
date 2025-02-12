@@ -13,7 +13,7 @@ class TestTaskTemplates < Minitest::Test
                       format: { pattern: "(\w+): (\d+)", template: "{name}: {value}" })
     assert_equal s + 1, TaskTemplates.size, "Task template should be created"
 
-    t = TaskTemplates.get("123")
+    t = TaskTemplates["123"]
     assert_equal "123", t[:uuid]
     assert_equal "shell", t[:type]
     assert_equal "echo 'Hello, world!'", t[:cmd]

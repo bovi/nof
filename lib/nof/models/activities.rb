@@ -8,27 +8,29 @@ require 'securerandom'
 # on the Controller and the RemoteDashboard
 class Activities < Model
   class << self
-    def setup_table
-      db.create_table('activities', [
+    def setup_tables
+      create_table('activities', [
         'uuid',
         'created_at',
         'action',
         'opt',
-        'source'
+        'source_name'
       ])
 
-      db.create_table('activities_northbound', [
+      create_table('activities_northbound', [
         'uuid',
         'created_at',
         'action',
-        'opt'
+        'opt',
+        'source_name'
       ])
 
-      db.create_table('activities_southbound', [
+      create_table('activities_southbound', [
         'uuid',
         'created_at',
         'action',
-        'opt'
+        'opt',
+        'source_name'
       ])
     end
 
@@ -41,7 +43,6 @@ class Activities < Model
     end
 
     def [](uuid)
-      #(@activities || []).find { |a| a[:uuid] == uuid }
       ret = db.execute("SELECT * FROM activities WHERE uuid = ?", uuid)
       ret = ret.map do |row|
         row = row.transform_keys(&:to_sym)
@@ -58,24 +59,18 @@ class Activities < Model
     # action: the action of the activity (mandatory)
     # opt: the options of the activity
     # source: :northbound or :southbound (the sync source - only if we sync)
-    def add(uuid: nil, created_at: nil, action: nil, opt: {}, source: nil)
-      #@activities ||= []
-      #@northbound_activities ||= []
-      #@southbound_activities ||= []
-
+    # source_name: the name of the source (optional if we sync)
+    def add(uuid: nil, created_at: nil, action: nil, opt: {}, sync_source: nil, source_name: nil)
       activity = {}
       activity[:uuid] = uuid || SecureRandom.uuid
       activity[:created_at] = created_at || Time.now.to_i
       raise ArgumentError, "action is required" unless action
       activity[:action] = action
       activity[:opt] = opt
+      _source_name = source_name || $system_name
 
-      #@activities << activity
-     
-      debug "size before insert: #{size}"
-      db.execute("INSERT INTO activities (uuid, created_at, action, opt, source) VALUES (?, ?, ?, ?, ?)",
-                 activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json, activity[:source])
-      debug "size after insert: #{size}"
+      db.execute("INSERT INTO activities (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
+                 activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json, _source_name)
 
       # here we prepare the activities to be synced for the
       # southbound or northbound system
@@ -83,15 +78,17 @@ class Activities < Model
       # IMPORTANT:
       # only add to the northbound or southbound activities
       # if the source is not the same as the target system
-      #@northbound_activities << activity unless source == :northbound
-      #@southbound_activities << activity unless source == :southbound
-      unless source == :northbound
-        db.execute("INSERT INTO activities_northbound (uuid, created_at, action, opt) VALUES (?, ?, ?, ?)",
-                   activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json)
+      # otherwise we push the same activity back to the system
+      # where it came from.
+      # If there is no northbound or southbound system, we don't
+      # need to sync either.
+      if sync_source != :northbound && $northbound_system_name != nil
+        db.execute("INSERT INTO activities_northbound (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
+                   activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json, _source_name)
       end
-      unless source == :southbound
-        db.execute("INSERT INTO activities_southbound (uuid, created_at, action, opt) VALUES (?, ?, ?, ?)",
-                   activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json)
+      if sync_source != :southbound && $southbound_system_name != nil
+        db.execute("INSERT INTO activities_southbound (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
+                   activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json, _source_name)
       end
 
       activity[:uuid]
@@ -100,10 +97,9 @@ class Activities < Model
     # sync activities from another system
     #
     # activities: the activities to sync
-    # source: :northbound or :southbound (the sync source)
-    def sync(activities, source: nil)
-      raise ArgumentError, "source is required" unless source
-      debug "syncing activities from #{source}"
+    # sync_source: :northbound or :southbound (the sync source)
+    def sync(activities, sync_source: nil)
+      raise ArgumentError, "sync_source is required" unless sync_source
 
       activities.each do |activity|
         if self[activity['uuid']]
@@ -125,19 +121,18 @@ class Activities < Model
           created_at: activity['created_at'],
           action: activity['action'],
           opt: opt,
-          source: source
+          sync_source: sync_source,
+          source_name: activity['source_name']
         )
       end
       activities.size
     end
 
     def size
-      #(@activities || []).size
-      db.count("activities")
+      count("activities")
     end
 
     def to_json
-      #(@activities || []).to_json
       db.execute("SELECT * FROM activities").map do |row|
         row = row.transform_keys(&:to_sym)
         row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
@@ -146,9 +141,6 @@ class Activities < Model
     end
 
     def northbound_json! &block
-      #json = (@northbound_activities || []).to_json
-      #yield json
-      #@northbound_activities = []
       json = db.execute("SELECT * FROM activities_northbound").map do |row|
         row = row.transform_keys(&:to_sym)
         row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
@@ -158,10 +150,15 @@ class Activities < Model
       db.execute("DELETE FROM activities_northbound")
     end
 
+    def northbound_activities
+      db.execute("SELECT * FROM activities_northbound")
+    end
+
+    def southbound_activities
+      db.execute("SELECT * FROM activities_southbound")
+    end
+
     def southbound_json! &block
-      #json = (@southbound_activities || []).to_json
-      #@southbound_activities = []
-      #json
       json = db.execute("SELECT * FROM activities_southbound").map do |row|
         row = row.transform_keys(&:to_sym)
         row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
@@ -172,19 +169,13 @@ class Activities < Model
     end
 
     def southbound_raw!
-      #raw = (@southbound_activities || [])
-      #@southbound_activities = []
-      #raw
       raw = db.execute("SELECT * FROM activities_southbound")
-      debug "!!! southbound raw: #{raw}"
       raw = raw.map do |row|
         row = row.transform_keys(&:to_sym)
         row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
         row
       end
-      debug "!!! southbound raw after transform: #{raw}"
       db.execute("DELETE FROM activities_southbound")
-      debug "!!! southbound raw after delete: #{raw}"
       raw
     end
 

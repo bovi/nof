@@ -21,18 +21,4 @@ class TestDB < Minitest::Test
       assert_equal "test", ret.first["name"]
     end
   end
-
-  def test_db_count
-    create_database do
-      @db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
-      @db.execute("INSERT INTO test (name) VALUES (?)", "test")
-      assert_equal 1, @db.count("test")
-      @db.execute("INSERT INTO test (name) VALUES (?)", "test2")
-      assert_equal 2, @db.count("test")
-      @db.execute("DELETE FROM test WHERE name = ?", "test")
-      assert_equal 1, @db.count("test")
-      @db.execute("DELETE FROM test")
-      assert_equal 0, @db.count("test")
-    end
-  end
 end

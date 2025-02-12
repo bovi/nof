@@ -5,8 +5,8 @@ require 'securerandom'
 # will be executed by the Executor.
 class TaskTemplates < Model
   class << self
-    def setup_table
-      db.create_table('tasktemplates', [
+    def setup_tables
+      create_table('tasktemplates', [
         'uuid',
         'type',
         'cmd',
@@ -16,8 +16,10 @@ class TaskTemplates < Model
 
     def add(uuid: nil, type: nil, cmd: nil, format: nil)
       task = {}
+
       task[:uuid] = uuid || SecureRandom.uuid
       raise ArgumentError, "type is required" unless type
+
       task[:type] = type
       if type == 'shell'
         if cmd
@@ -39,10 +41,10 @@ class TaskTemplates < Model
     end
 
     def size
-      db.count("tasktemplates")
+      count("tasktemplates")
     end
 
-    def get(uuid)
+    def [](uuid)
       ret = db.execute("SELECT * FROM tasktemplates WHERE uuid = ?", uuid)
       ret = ret.map do |row|
         row = row.transform_keys(&:to_sym)

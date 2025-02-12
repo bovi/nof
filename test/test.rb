@@ -16,11 +16,7 @@ def _post(klass, path = '', body = {})
 end
 
 def init_model_db
-  ObjectSpace.each_object(Class).select do |c|
-    c < Model
-  end.each do |model|
-    model.setup_table
-  end
+  Model.setup_all_tables
 end
 
 def delete_model_db

@@ -6,19 +6,22 @@ require 'webrick'
 class System
   PORT = nil
   NORTHBOUND_SYSTEM = nil
+  SOUTHBOUND_SYSTEM = nil
 
   class << self
+    # storage for all routes from all subclasses and my own
     def routes
-      # Get all routes from parent classes plus our own routes
       ancestors.select { |a| a.respond_to?(:own_routes) }
                .map(&:own_routes)
                .reduce({}, &:merge)
     end
 
+    # storage for own routes
     def own_routes
       @routes ||= {}
     end
 
+    # register a new route with a block
     def register(path, &block)
       own_routes[path] = block
     end
@@ -53,6 +56,10 @@ class System
         )
       end
     end
+
+    def southbound_system_name_class
+      const_get(self::SOUTHBOUND_SYSTEM)
+    end
   end
 
   def setup
@@ -63,14 +70,12 @@ class System
   def initialize
     raise "PORT must be set" if self.class.port.nil?
     $system_name = system_name
+    $southbound_system_name = self.class.const_get(:SOUTHBOUND_SYSTEM)
+    $northbound_system_name = self.class.const_get(:NORTHBOUND_SYSTEM)
     info "Starting on #{self.class.host}:#{self.class.port}"
 
     begin
-      ObjectSpace.each_object(Class).select do |c|
-        c < Model
-      end.each do |model|
-        model.setup_table
-      end
+      Model.setup_all_tables
     rescue => e
       err "Failed to setup tables: #{e.class}: #{e.message}"
       exit 1
@@ -101,7 +106,7 @@ class System
     else self.class.name.upcase
     end
   end
-  
+
   def start
     @server.start
   end
@@ -160,13 +165,11 @@ class System
     http = Net::HTTP.new(uri.host, uri.port)
     request = Net::HTTP::Post.new(uri.path)
     Activities.northbound_json! do |activities_json|
-      debug "syncing activities: #{activities_json}"
       request.body = activities_json
       response = http.request(request)
-      debug "sync response: #{response.body}"
       if response.is_a?(Net::HTTPSuccess)
         new_activities = JSON.parse(response.body)['activities']
-        sync_num =  Activities.sync(new_activities, source: :northbound)
+        sync_num =  Activities.sync(new_activities, sync_source: :northbound)
         info "Synced #{sync_num} activities successfully"
       else
         err "Sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"

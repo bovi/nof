@@ -47,18 +47,6 @@ class Database
     @pool = ConnectionPool.new(size: 5, db_file: db_file)
   end
 
-  def create_table(name, columns)
-    @pool.with_connection do |conn|
-      conn.execute("CREATE TABLE IF NOT EXISTS #{name} (#{columns.join(', ')})")
-    end
-  end
-
-  def count(table)
-    @pool.with_connection do |conn|
-      conn.execute("SELECT COUNT(*) AS cnt FROM #{table}").first['cnt']
-    end
-  end
-
   def execute(sql, *args)
     @pool.with_connection do |conn|
       conn.execute(sql, args) 

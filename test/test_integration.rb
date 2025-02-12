@@ -55,12 +55,21 @@ class IntegrationTest < Minitest::Test
     assert_equal '{greeting}', task_template['format']['template']
     uuid = task_template['uuid']
 
-    # check if activtiies is now higher
+    # check if activity exists which created the task template
     response = _get(RemoteDashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
     activities = JSON.parse(response.body)
     assert_equal expected_remotedashboard_activities, activities.size,
                  "Activity should be created"
+    activity = activities.find { |a| a['action'] == 'tasktemplate_add' && a['opt']['uuid'] == uuid }
+    refute_nil activity, "Activity for task template creation should exist"
+    assert_equal 'tasktemplate_add', activity['action']
+    assert_equal uuid, activity['opt']['uuid']
+    assert_equal 'shell', activity['opt']['type'] 
+    assert_equal 'echo "Hello, World!"', activity['opt']['cmd']
+    assert_equal '(?<greeting>Hello)', activity['opt']['format']['pattern']
+    assert_equal '{greeting}', activity['opt']['format']['template']
+    assert_equal 'RASH', activity['source_name']
 
     # check that it is available in the Remote Dashboard
     response = _get(RemoteDashboard, '/tasktemplates.json')
@@ -83,6 +92,15 @@ class IntegrationTest < Minitest::Test
     activities = JSON.parse(response.body)
     assert_equal expected_dashboard_activities, activities.size,
                  "Activity should be synced to the Dashboard"
+    activity = activities.find { |a| a['action'] == 'tasktemplate_add' && a['opt']['uuid'] == uuid }
+    refute_nil activity, "Activity for task template creation should exist"
+    assert_equal 'tasktemplate_add', activity['action']
+    assert_equal uuid, activity['opt']['uuid']
+    assert_equal 'shell', activity['opt']['type'] 
+    assert_equal 'echo "Hello, World!"', activity['opt']['cmd']
+    assert_equal '(?<greeting>Hello)', activity['opt']['format']['pattern']
+    assert_equal '{greeting}', activity['opt']['format']['template']
+    assert_equal 'RASH', activity['source_name']
 
     response = _get(Dashboard, '/tasktemplates.json')
     assert_equal '200', response.code, "Task templates should be accessible"
@@ -151,6 +169,9 @@ class IntegrationTest < Minitest::Test
     activities = JSON.parse(response.body)
     assert_equal expected_dashboard_activities, activities.size,
                  "Activity should be created"
+    activity = activities.find { |a| a['action'] == 'tasktemplate_add' && a['opt']['uuid'] == uuid }
+    refute_nil activity, "Activity for task template creation should exist"
+    assert_equal 'DASH', activity['source_name']
 
     # wait for the controller to sync the activity
     wait_for_sync(Controller)
@@ -161,6 +182,9 @@ class IntegrationTest < Minitest::Test
     activities = JSON.parse(response.body)
     assert_equal expected_controller_activities, activities.size,
                  "Activity should be synced to the Controller"
+    activity = activities.find { |a| a['action'] == 'tasktemplate_add' && a['opt']['uuid'] == uuid }
+    refute_nil activity, "Activity for task template creation should exist"
+    assert_equal 'DASH', activity['source_name'] # activity was created on the Dashboard
 
     response = _get(Controller, '/tasktemplates.json')
     assert_equal '200', response.code, "Task templates should be accessible"
@@ -229,6 +253,9 @@ class IntegrationTest < Minitest::Test
     activities = JSON.parse(response.body)
     assert_equal expected_controller_activities, activities.size,
                  "Activity should be synced to the Controller"
+    activity = activities.find { |a| a['action'] == 'tasktemplate_add' && a['opt']['uuid'] == uuid }
+    refute_nil activity, "Activity for task template creation should exist"
+    assert_equal 'RASH', activity['source_name'] # activity was created on the Remote Dashboard
 
     # check task template on Controller
     response = _get(Controller, '/tasktemplates.json')

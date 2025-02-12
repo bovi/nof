@@ -3,9 +3,17 @@ require_relative '../db'
 
 class Model
   class << self
-    def setup_table
+    def setup_tables
       err "Subclasses must implement the setup_table method"
       raise NotImplementedError, "Subclasses must implement the setup_table method"
+    end
+
+    def setup_all_tables
+      ObjectSpace.each_object(Class).select do |c|
+        c < Model
+      end.each do |model|
+        model.setup_tables
+      end
     end
 
     def db
@@ -20,6 +28,14 @@ class Model
     def delete_db
       @@db.delete
       @@db = nil
+    end
+
+    def create_table(name, columns)
+      db.execute("CREATE TABLE IF NOT EXISTS #{name} (#{columns.join(', ')})")
+    end
+  
+    def count(table)
+      db.execute("SELECT COUNT(*) AS cnt FROM #{table}").first['cnt']
     end
   end
 end

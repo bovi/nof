@@ -15,6 +15,4 @@ class RemoteDashboard < Dashboard
 
   def setup
   end
-
-
 end
