@@ -1,36 +1,51 @@
-# Simple Task Distribution System
+# NOF - Network Operator Framework
 
-This system consists of three main components:
+NOF is a framework for building network operator systems. It provides a set of tools and models
+to help you build your own network operator system.
 
-1. **Dashboard** (Port 8080): Web interface for task management and monitoring
-2. **Controller** (Port 8081): Central task coordination server
-3. **Executor** (Port 8082): Task execution agent
+# Architecture
 
-## Setup
+NOF consists of four main components:
 
-1. Install Ruby (no additional dependencies required)
+- **Controller**: Central system for coordination of tasks and holding all data
+- **Executor**: Acquires tasks from the controller, executes them and reports back
+- **Dashboard**: Web interface for managing the controller
+- **Remote Dashboard**: Remote web interface for managing multiple controllers
 
-2. Start the components in separate terminals:
-```bash
-# Start Dashboard
-ruby dash.rb
+The general architecture looks like this:
 
-# Start Controller
-ruby ctrl.rb
+```mermaid
+graph TD;
+  Ctrl["Controller"];
+  Exec["Executor"];
+  Dash["Dashboard"];
+  Rash["Remote Dashboard"];
 
-# Start Executor
-ruby exec.rb
+  Exec -->|results| Ctrl;
+  Ctrl -->|tasks| Exec;
+  Dash -->|manage| Ctrl;
+  Rash -->|manage| Ctrl;
+  Ctrl -->|results| Dash;
+  Ctrl -->|results| Rash;
 ```
 
-## Architecture
+Yet due to the restricted nature of common network systems, the NOF is designed to initiated communication
+unidirectional from the Executor to the Controller, from the Controller to the Dashboard and from
+the Dashboard to the Remote Dashboard. Hence the communication architecture looks like this:
 
-- Dashboard -> Controller: Task configuration and monitoring
-- Controller -> Executor: Task distribution
-- Executor -> Controller: Task result reporting
+```mermaid
+graph TD;
+  Ctrl["Controller"];
+  Exec["Executor"];
+  Dash["Dashboard"];
+  Rash["Remote Dashboard"];
 
-## Components
+  Exec -->|acquire tasks| Ctrl;
+  Exec -->|report results| Ctrl;
 
-- `dash.rb`: Web interface for managing tasks and viewing results
-- `ctrl.rb`: Central task coordination
-- `exec.rb`: Task execution agent
-- `lib/`: Shared utilities and models 
+  Ctrl -->|report results| Dash;
+  Ctrl -->|acquire config changes| Dash;
+
+  Dash -->|report results| Rash;
+  Dash -->|acquire config changes| Rash;
+```
