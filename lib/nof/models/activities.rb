@@ -63,7 +63,7 @@ class Activities < Model
     def add(uuid: nil, created_at: nil, action: nil, opt: {}, sync_source: nil, source_name: nil)
       activity = {}
       activity[:uuid] = uuid || SecureRandom.uuid
-      activity[:created_at] = created_at || Time.now.to_i
+      activity[:created_at] = created_at || (Time.now.to_f * 1000).to_i
       raise ArgumentError, "action is required" unless action
       activity[:action] = action
       activity[:opt] = opt
@@ -130,6 +130,14 @@ class Activities < Model
 
     def size
       count("activities")
+    end
+
+    def each(&block)
+      db.execute("SELECT * FROM activities ORDER BY created_at DESC").each do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
+        block.call(row)
+      end
     end
 
     def to_json

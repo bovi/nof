@@ -32,7 +32,7 @@
     </tr>
   </thead>
   <tbody>
-    <% TaskTemplates.all.each do |task| %>
+    <% TaskTemplates.each do |task| %>
       <tr>
         <td><%= task[:cmd] %></td>
         <td><%= task[:format][:pattern] %></td>

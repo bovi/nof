@@ -23,13 +23,13 @@
     </tr>
   </thead>
   <tbody>
-    <% Hosts.all.each do |host| %>
+    <% Hosts.each do |host| %>
       <tr>
-        <td><%= host['hostname'] %></td>
-        <td><%= host['ip'] %></td>
+        <td><%= host[:hostname] %></td>
+        <td><%= host[:ip] %></td>
         <td>
           <form action="/host/delete" method="POST" style="margin: 0;">
-            <input type="hidden" name="uuid" value="<%= host['uuid'] %>">
+            <input type="hidden" name="uuid" value="<%= host[:uuid] %>">
             <input type="hidden" name="return_url" value="/hosts.html">
             <button type="submit" class="delete-button">Delete</button>
           </form>

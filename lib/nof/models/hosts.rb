@@ -41,6 +41,13 @@ class Hosts < Model
     def all
       db.execute("SELECT * FROM hosts")
     end
+
+    def each(&block)
+      db.execute("SELECT * FROM hosts").each do |row|
+        row = row.transform_keys(&:to_sym)
+        block.call(row)
+      end
+    end
   end
 end
 
