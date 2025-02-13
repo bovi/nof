@@ -56,10 +56,6 @@ class System
         )
       end
     end
-
-    def southbound_system_name_class
-      const_get(self::SOUTHBOUND_SYSTEM)
-    end
   end
 
   def setup
@@ -134,19 +130,20 @@ class System
   end
 
   def setup_sync_handlers
-    # Start the sync thread
+    # Start the sync thread if the system has a northbound system
     if self.class::NORTHBOUND_SYSTEM
       if self.class::SYNC_INTERVAL.nil?
         raise NotImplementedError, "SYNC_INTERVAL must be set for #{self.class.name}"
-      end
-      @sync_thread = Thread.new do
-        loop do
-          begin
-            sync_with_northbound_system
-            sleep self.class::SYNC_INTERVAL
-          rescue => e
-            err "Sync failed: #{e.message}"
-            sleep self.class::SYNC_INTERVAL  # Still wait before retrying
+      else
+        @sync_thread = Thread.new do
+          loop do
+            begin
+              sync_with_northbound_system
+              sleep self.class::SYNC_INTERVAL
+            rescue => e
+              err "Sync failed: #{e.message}"
+              sleep self.class::SYNC_INTERVAL  # Still wait before retrying
+            end
           end
         end
       end
@@ -158,8 +155,6 @@ class System
     northbound_host = northbound_class.host
     northbound_port = northbound_class.port
 
-    info "Syncing with #{northbound_class.name} at #{northbound_host}:#{northbound_port}..."
-
     # Send all new activities to remote dashboard
     uri = URI("http://#{northbound_host}:#{northbound_port}/activities/sync")
     http = Net::HTTP.new(uri.host, uri.port)
@@ -170,7 +165,7 @@ class System
       if response.is_a?(Net::HTTPSuccess)
         new_activities = JSON.parse(response.body)['activities']
         sync_num =  Activities.sync(new_activities, sync_source: :northbound)
-        info "Synced #{sync_num} activities successfully"
+        info "Synced #{sync_num} activities successfully" unless sync_num.zero?
       else
         err "Sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"
         raise "Sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"

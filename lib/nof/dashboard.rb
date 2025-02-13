@@ -19,6 +19,13 @@ class Dashboard < System
   def setup
   end
 
+  class << self
+    def render(template)
+      @content = ERB.new(File.read(File.join(__dir__, 'views', "#{template}.erb"))).result(binding)
+      ERB.new(File.read(File.join(__dir__, 'views', '_layout.erb'))).result(binding)
+    end
+  end
+
   register '/activities/sync' do |req, res|
     status = 'ko'
     message = ''
@@ -29,8 +36,9 @@ class Dashboard < System
       status = 'ok'
       message = "Activities synced successfully: #{synced_num}"
       activities = Activities.southbound_raw!
+      info "Synced #{synced_num} activities successfully" unless synced_num.zero?
     rescue => e
-      err "Sync failed: #{e.message}"
+      err "Sync failed: #{e.class}: #{e.message}"
       status = 'error'
       message = e.message
     end
@@ -44,8 +52,8 @@ class Dashboard < System
   end
 
   register '/' do |req, res|
-    res.body = 'Dashboard Home'
-    res.content_type = 'text/plain'
+    res.body = render('index')
+    res.content_type = 'text/html'
   end
 
   register '/tasktemplate' do |req, res|
@@ -81,8 +89,7 @@ class Dashboard < System
   end
 
   register '/tasktemplates.html' do |req, res|
-    template = File.read(File.join(__dir__, 'views', 'tasktemplate.erb'))
-    res.body = ERB.new(template).result(binding)
+    res.body = render('tasktemplate')
     res.content_type = 'text/html'
   end
 
@@ -116,8 +123,12 @@ class Dashboard < System
   end
 
   register '/hosts.html' do |req, res|
-    template = File.read(File.join(__dir__, 'views', 'host.erb'))
-    res.body = ERB.new(template).result(binding)
+    res.body = render('host')
+    res.content_type = 'text/html'
+  end
+
+  register '/activities.html' do |req, res|
+    res.body = render('activities')
     res.content_type = 'text/html'
   end
 end

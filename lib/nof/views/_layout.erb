@@ -1,0 +1,36 @@
+<html>
+  <head>
+    <title>NOF</title>
+    <style>
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1em 0;
+      }
+      th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background-color: #f5f5f5;
+      }
+      tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+      tr:hover {
+        background-color: #f5f5f5;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <ul>
+        <li><a href="/hosts.html">Manage Hosts</a></li>
+        <li><a href="/tasktemplates.html">Manage Task Templates</a></li>
+        <li><a href="/activities.html">View Activities</a></li>
+      </ul>
+    </nav>
+    <%= @content %>
+  </body>
+</html>

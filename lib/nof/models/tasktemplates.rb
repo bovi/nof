@@ -72,7 +72,13 @@ class TaskTemplates < Model
     end
 
     def all
-      db.execute("SELECT * FROM tasktemplates")
+      ret = db.execute("SELECT * FROM tasktemplates").map do |row|
+        row = row.transform_keys(&:to_sym)
+        row[:format] = JSON.parse(row[:format]).transform_keys(&:to_sym)
+        row
+      end
+      debug "ret: #{ret.inspect}"
+      ret
     end
   end
 end
