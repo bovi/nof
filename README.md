@@ -49,3 +49,19 @@ graph TD;
   Dash -->|report results| Rash;
   Dash -->|acquire config changes| Rash;
 ```
+
+# System Components
+
+## Controller
+
+### Jobs
+
+The Controller is responsible for managing the jobs that are assigned to the Executors.
+These jobs are derived from the Tasks, which create a relation between TaskTemplates
+and elements (e.g. Hosts).
+
+## Executor
+
+## Dashboard
+
+## Remote Dashboard

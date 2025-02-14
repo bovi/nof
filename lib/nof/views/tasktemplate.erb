@@ -25,18 +25,18 @@
 <table id="task-list">
   <thead>
     <tr>
-      <th>Command</th>
-      <th>Pattern</th>
-      <th>Template</th>
+      <th>UUID</th>
+      <th>Type</th>
+      <th>Options</th>
       <th>Actions</th>
     </tr>
   </thead>
   <tbody>
     <% TaskTemplates.each do |task| %>
       <tr>
-        <td><%= task[:cmd] %></td>
-        <td><%= task[:format][:pattern] %></td>
-        <td><%= task[:format][:template] %></td>
+        <td><%= task[:uuid] %></td>
+        <td><%= task[:type] %></td>
+        <td><%= task[:opts].to_json %></td>
         <td>
           <form action="/tasktemplate/delete" method="POST" style="margin: 0;">
             <input type="hidden" name="uuid" value="<%= task[:uuid] %>">

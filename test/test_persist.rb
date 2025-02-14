@@ -50,9 +50,9 @@ class TestPersist < Minitest::Test
     template = templates.find { |t| t['uuid'] == uuid }
     refute_nil template, "Template should exist"
     assert_equal task_template['type'], template['type'], "Template type should match"
-    assert_equal task_template['cmd'], template['cmd'], "Template cmd should match"
-    assert_equal task_template['pattern'], template['format']['pattern'], "Template format should match"
-    assert_equal task_template['template'], template['format']['template'], "Template format should match"
+    assert_equal task_template['cmd'], template['opts']['cmd'], "Template cmd should match"
+    assert_equal task_template['pattern'], template['opts']['format']['pattern'], "Template format should match"
+    assert_equal task_template['template'], template['opts']['format']['template'], "Template format should match"
 
     # Stop the system process
     Process.kill("INT", system_pid)
@@ -71,9 +71,9 @@ class TestPersist < Minitest::Test
     template = templates.find { |t| t['uuid'] == uuid }
     refute_nil template, "Template should exist after restart"
     assert_equal task_template['type'], template['type'], "Template type should match"
-    assert_equal task_template['cmd'], template['cmd'], "Template cmd should match"
-    assert_equal task_template['pattern'], template['format']['pattern'], "Template format should match"
-    assert_equal task_template['template'], template['format']['template'], "Template format should match"
+    assert_equal task_template['cmd'], template['opts']['cmd'], "Template cmd should match"
+    assert_equal task_template['pattern'], template['opts']['format']['pattern'], "Template format should match"
+    assert_equal task_template['template'], template['opts']['format']['template'], "Template format should match"
 
     # get the activities count
     response = _get(klass, 'activities.json')
@@ -126,9 +126,9 @@ class TestPersist < Minitest::Test
     template = templates.find { |t| t['uuid'] == uuid }
     refute_nil template, "Template should exist on controller"
     assert_equal task_template['type'], template['type'], "Template type should match"
-    assert_equal task_template['cmd'], template['cmd'], "Template cmd should match"
-    assert_equal task_template['pattern'], template['format']['pattern'], "Template format should match"
-    assert_equal task_template['template'], template['format']['template'], "Template format should match"
+    assert_equal task_template['cmd'], template['opts']['cmd'], "Template cmd should match"
+    assert_equal task_template['pattern'], template['opts']['format']['pattern'], "Template format should match"
+    assert_equal task_template['template'], template['opts']['format']['template'], "Template format should match"
 
     # Stop both processes
     Process.kill("INT", dashboard_pid)
@@ -149,9 +149,9 @@ class TestPersist < Minitest::Test
     template = templates.find { |t| t['uuid'] == uuid }
     refute_nil template, "Template should exist on controller after restart"
     assert_equal task_template['type'], template['type'], "Template type should match"
-    assert_equal task_template['cmd'], template['cmd'], "Template cmd should match"
-    assert_equal task_template['pattern'], template['format']['pattern'], "Template format should match"
-    assert_equal task_template['template'], template['format']['template'], "Template format should match"
+    assert_equal task_template['cmd'], template['opts']['cmd'], "Template cmd should match"
+    assert_equal task_template['pattern'], template['opts']['format']['pattern'], "Template format should match"
+    assert_equal task_template['template'], template['opts']['format']['template'], "Template format should match"
 
     # Clean up
     Process.kill("INT", new_controller_pid)

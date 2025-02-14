@@ -9,21 +9,20 @@ class TaskTemplates < Model
       create_table('tasktemplates', [
         'uuid',
         'type',
-        'cmd',
-        'format'
+        'opts'
       ])
     end
 
-    def add(uuid: nil, type: nil, cmd: nil, format: nil)
-      task = {}
+    def add(uuid: nil, type: nil, opts: {})
+      task = {uuid: nil, type: nil, opts: {}}
 
       task[:uuid] = uuid || SecureRandom.uuid
       raise ArgumentError, "type is required" unless type
 
       task[:type] = type
       if type == 'shell'
-        if cmd
-          task[:cmd] = cmd
+        if opts[:cmd]
+          task[:opts][:cmd] = opts[:cmd]
         else
           err "cmd is required"
           raise ArgumentError, "cmd is required"
@@ -32,10 +31,10 @@ class TaskTemplates < Model
         err "unknown type: #{type}"
         raise ArgumentError, "unknown type: #{type}"
       end
-      task[:format] = format || {}
+      task[:opts][:format] = opts[:format] || {}
 
-      db.execute("INSERT INTO tasktemplates (uuid, type, cmd, format) VALUES (?, ?, ?, ?)",
-                 task[:uuid], task[:type], task[:cmd], task[:format].to_json)
+      db.execute("INSERT INTO tasktemplates (uuid, type, opts) VALUES (?, ?, ?)",
+                 task[:uuid], task[:type], task[:opts].to_json)
 
       task
     end
@@ -45,17 +44,22 @@ class TaskTemplates < Model
     end
 
     def [](uuid)
-      ret = db.execute("SELECT * FROM tasktemplates WHERE uuid = ?", uuid)
+      ret = db.execute("SELECT * FROM tasktemplates WHERE uuid = '#{uuid}'")
       ret = ret.map do |row|
         row = row.transform_keys(&:to_sym)
-        row[:format] = JSON.parse(row[:format]).transform_keys(&:to_sym)
+        row[:opts] = JSON.parse(row[:opts]).transform_keys(&:to_sym)
+        row[:opts][:format] = row[:opts][:format].transform_keys(&:to_sym)
         row
       end
       ret.first
     end
 
     def delete(uuid)
-      ret = db.execute("DELETE FROM tasktemplates WHERE uuid = '#{uuid}'")
+      # first delete all tasks for this task template
+      Tasks.all.select { |t| t['tasktemplate_uuid'] == uuid }.each do |t|
+        Tasks.delete(t['uuid'])
+      end
+      db.execute("DELETE FROM tasktemplates WHERE uuid = '#{uuid}'")
       {uuid: uuid}
     end
 
@@ -66,7 +70,8 @@ class TaskTemplates < Model
     def to_json
       db.execute("SELECT * FROM tasktemplates").map do |row|
         row = row.transform_keys(&:to_sym)
-        row[:format] = JSON.parse(row[:format]).transform_keys(&:to_sym)
+        row[:opts] = JSON.parse(row[:opts]).transform_keys(&:to_sym)
+        row[:opts][:format] = row[:opts][:format].transform_keys(&:to_sym)
         row
       end.to_json
     end
@@ -74,7 +79,8 @@ class TaskTemplates < Model
     def all
       ret = db.execute("SELECT * FROM tasktemplates").map do |row|
         row = row.transform_keys(&:to_sym)
-        row[:format] = JSON.parse(row[:format]).transform_keys(&:to_sym)
+        row[:opts] = JSON.parse(row[:opts]).transform_keys(&:to_sym)
+        row[:opts][:format] = row[:opts][:format].transform_keys(&:to_sym)
         row
       end
       debug "ret: #{ret.inspect}"
@@ -84,7 +90,8 @@ class TaskTemplates < Model
     def each(&block)
       db.execute("SELECT * FROM tasktemplates").each do |row|
         row = row.transform_keys(&:to_sym)
-        row[:format] = JSON.parse(row[:format]).transform_keys(&:to_sym)
+        row[:opts] = JSON.parse(row[:opts]).transform_keys(&:to_sym)
+        row[:opts][:format] = row[:opts][:format].transform_keys(&:to_sym)
         block.call(row)
       end
     end
@@ -95,8 +102,7 @@ Activities.register("tasktemplate_add") do |hsh|
   TaskTemplates.add(
     uuid: hsh[:uuid],
     type: hsh[:type],
-    cmd: hsh[:cmd],
-    format: hsh[:format]
+    opts: hsh[:opts]
   )
 end
 

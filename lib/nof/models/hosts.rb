@@ -21,7 +21,7 @@ class Hosts < Model
     end
 
     def [](uuid)
-      ret = db.execute("SELECT * FROM hosts WHERE uuid = ?", uuid)
+      ret = db.execute("SELECT * FROM hosts WHERE uuid = '#{uuid}'")
       ret = ret.map do |row|
         row = row.transform_keys(&:to_sym)
         row
@@ -30,6 +30,10 @@ class Hosts < Model
     end
 
     def delete(uuid)
+      # first delete all tasks for this host
+      Tasks.all.select { |t| t['host_uuid'] == uuid }.each do |t|
+        Tasks.delete(t['uuid'])
+      end
       db.execute("DELETE FROM hosts WHERE uuid = '#{uuid}'")
       {uuid: uuid}
     end

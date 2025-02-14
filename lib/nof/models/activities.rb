@@ -209,8 +209,7 @@ class Activities < Model
         activity_uuid = add(action: method_name.to_s, opt: result)
         [activity_uuid, result]
       else
-        # action not registered
-        super
+        raise NotImplementedError, "Activity '#{method_name}' is not registered"
       end
     end
 

@@ -24,7 +24,7 @@ class IntegrationTest < Minitest::Test
     wait_for_shutdown
   end
 
-  def _test_tasktemplate_sync_between_dashboard_and_remotedashboard
+  def test_tasktemplate_sync_between_dashboard_and_remotedashboard
     # get initial size of dashboard activities
     response = _get(Dashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -50,9 +50,9 @@ class IntegrationTest < Minitest::Test
     assert_equal '200', new_tasktemplate_response.code, "Task template should be created"
     task_template = JSON.parse(new_tasktemplate_response.body)
     assert_equal 'shell', task_template['type']
-    assert_equal 'echo "Hello, World!"', task_template['cmd']
-    assert_equal '(?<greeting>Hello)', task_template['format']['pattern']
-    assert_equal '{greeting}', task_template['format']['template']
+    assert_equal 'echo "Hello, World!"', task_template['opts']['cmd']
+    assert_equal '(?<greeting>Hello)', task_template['opts']['format']['pattern']
+    assert_equal '{greeting}', task_template['opts']['format']['template']
     uuid = task_template['uuid']
 
     # check if activity exists which created the task template
@@ -66,9 +66,9 @@ class IntegrationTest < Minitest::Test
     assert_equal 'tasktemplate_add', activity['action']
     assert_equal uuid, activity['opt']['uuid']
     assert_equal 'shell', activity['opt']['type'] 
-    assert_equal 'echo "Hello, World!"', activity['opt']['cmd']
-    assert_equal '(?<greeting>Hello)', activity['opt']['format']['pattern']
-    assert_equal '{greeting}', activity['opt']['format']['template']
+    assert_equal 'echo "Hello, World!"', activity['opt']['opts']['cmd']
+    assert_equal '(?<greeting>Hello)', activity['opt']['opts']['format']['pattern']
+    assert_equal '{greeting}', activity['opt']['opts']['format']['template']
     assert_equal 'RASH', activity['source_name']
 
     # check that it is available in the Remote Dashboard
@@ -79,9 +79,9 @@ class IntegrationTest < Minitest::Test
     refute_nil task_template, "Task template should be accessible"
     assert_equal uuid, task_template['uuid']
     assert_equal 'shell', task_template['type']
-    assert_equal 'echo "Hello, World!"', task_template['cmd']
-    assert_equal '(?<greeting>Hello)', task_template['format']['pattern']
-    assert_equal '{greeting}', task_template['format']['template']
+    assert_equal 'echo "Hello, World!"', task_template['opts']['cmd']
+    assert_equal '(?<greeting>Hello)', task_template['opts']['format']['pattern']
+    assert_equal '{greeting}', task_template['opts']['format']['template']
 
     # check that it is available in the Dashboard
     wait_for_sync(Dashboard)
@@ -97,9 +97,9 @@ class IntegrationTest < Minitest::Test
     assert_equal 'tasktemplate_add', activity['action']
     assert_equal uuid, activity['opt']['uuid']
     assert_equal 'shell', activity['opt']['type'] 
-    assert_equal 'echo "Hello, World!"', activity['opt']['cmd']
-    assert_equal '(?<greeting>Hello)', activity['opt']['format']['pattern']
-    assert_equal '{greeting}', activity['opt']['format']['template']
+    assert_equal 'echo "Hello, World!"', activity['opt']['opts']['cmd']
+    assert_equal '(?<greeting>Hello)', activity['opt']['opts']['format']['pattern']
+    assert_equal '{greeting}', activity['opt']['opts']['format']['template']
     assert_equal 'RASH', activity['source_name']
 
     response = _get(Dashboard, '/tasktemplates.json')
@@ -109,9 +109,9 @@ class IntegrationTest < Minitest::Test
     refute_nil task_template, "Task template should be synced to the Dashboard"
     assert_equal uuid, task_template['uuid']
     assert_equal 'shell', task_template['type']
-    assert_equal 'echo "Hello, World!"', task_template['cmd']
-    assert_equal '(?<greeting>Hello)', task_template['format']['pattern']
-    assert_equal '{greeting}', task_template['format']['template']
+    assert_equal 'echo "Hello, World!"', task_template['opts']['cmd']
+    assert_equal '(?<greeting>Hello)', task_template['opts']['format']['pattern']
+    assert_equal '{greeting}', task_template['opts']['format']['template']
 
     response = _get(RemoteDashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -135,7 +135,7 @@ class IntegrationTest < Minitest::Test
                  "Activity should still be the same as before even after the second sync"
   end
 
-  def _test_task_sync_between_controller_and_dashboard
+  def test_task_sync_between_controller_and_dashboard
     # get initial size of dashboard activities
     response = _get(Dashboard, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -193,9 +193,9 @@ class IntegrationTest < Minitest::Test
     refute_nil task_template, "Task template should be synced to the Controller"
     assert_equal uuid, task_template['uuid']
     assert_equal 'shell', task_template['type']
-    assert_equal 'echo "Hello, World!"', task_template['cmd']
-    assert_equal '(?<greeting>Hello)', task_template['format']['pattern']
-    assert_equal '{greeting}', task_template['format']['template']
+    assert_equal 'echo "Hello, World!"', task_template['opts']['cmd']
+    assert_equal '(?<greeting>Hello)', task_template['opts']['format']['pattern']
+    assert_equal '{greeting}', task_template['opts']['format']['template']
 
     # wait for another sync cycle to ensure that duplicate activities are not added
     wait_for_sync(Controller)
@@ -215,7 +215,7 @@ class IntegrationTest < Minitest::Test
                  "Activity should still be the same as before even after the second sync"
   end
 
-  def _test_task_sync_between_controller_and_remotedashboard
+  def test_task_sync_between_controller_and_remotedashboard
     # get initial size of controller activities
     response = _get(Controller, '/activities.json')
     assert_equal '200', response.code, "Activities should be accessible"
@@ -265,9 +265,9 @@ class IntegrationTest < Minitest::Test
     refute_nil task_template, "Task template should be synced to the Controller"
     assert_equal uuid, task_template['uuid']
     assert_equal 'shell', task_template['type']
-    assert_equal 'echo "Hello, World!"', task_template['cmd']
-    assert_equal '(?<greeting>Hello)', task_template['format']['pattern']
-    assert_equal '{greeting}', task_template['format']['template']
+    assert_equal 'echo "Hello, World!"', task_template['opts']['cmd']
+    assert_equal '(?<greeting>Hello)', task_template['opts']['format']['pattern']
+    assert_equal '{greeting}', task_template['opts']['format']['template']
   end
 
   def test_host_sync_between_rash_and_dash
@@ -320,5 +320,56 @@ class IntegrationTest < Minitest::Test
     hosts = JSON.parse(response.body)
     assert_equal sh, hosts.size,
                  "Host should be deleted"
+  end
+
+  def test_task_sync
+    # add host to remote dashboard
+    new_host_response = _post(RemoteDashboard,
+                              '/host',
+                              {
+                                'hostname' => 'localhost',
+                                'ip' => '127.0.0.1'
+                              })
+    assert_equal '200', new_host_response.code, "Host should be created"
+    host = JSON.parse(new_host_response.body)
+    host_uuid = host['uuid']
+
+    # add tasktemplate to remote dashboard
+    new_tasktemplate_response = _post(RemoteDashboard,
+                                      '/tasktemplate',
+                                      {
+                                        'type' => 'shell',
+                                        'cmd' => 'echo "Hello, World!"',
+                                        'pattern' => '(?<greeting>Hello)',
+                                        'template' => '{greeting}'
+                                      })
+    assert_equal '200', new_tasktemplate_response.code, "Task template should be created"
+    task_template = JSON.parse(new_tasktemplate_response.body)
+    tasktemplate_uuid = task_template['uuid']
+
+    # add task to remote dashboard
+    new_task_response = _post(RemoteDashboard,
+                              '/task',
+                              {
+                                'host_uuid' => host_uuid,
+                                'tasktemplate_uuid' => tasktemplate_uuid
+                              })
+    assert_equal '200', new_task_response.code, "Task should be created"
+    task = JSON.parse(new_task_response.body)
+    task_uuid = task['uuid']
+
+    # wait for the sync to the Dashboard
+    wait_for_sync(Dashboard)
+    wait_for_sync(Controller)
+    
+    response = _get(Controller, '/jobs.json')
+    assert_equal '200', response.code, "Jobs should be accessible"
+    jobs = JSON.parse(response.body)
+    job = jobs.find { |j| j['uuid'] == task_uuid }
+    refute_nil job, "Job should be synced to the Controller"
+    assert_equal 'shell', job['type']
+    assert_equal 'echo "Hello, World!"', job['opts']['cmd']
+    assert_equal '(?<greeting>Hello)', job['opts']['format']['pattern']
+    assert_equal '{greeting}', job['opts']['format']['template']
   end
 end

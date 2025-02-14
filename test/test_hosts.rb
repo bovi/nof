@@ -28,4 +28,14 @@ class TestHosts < Minitest::Test
     assert_equal s, Hosts.size
     assert_nil Hosts[h[:uuid]]
   end
+
+  def test_delete_with_tasks
+    h = Hosts.add(hostname: "localhost", ip: "127.0.0.1")
+    tt = TaskTemplates.add(type: "shell", opts: {cmd: "echo 'Hello, world!'"})
+    s = Tasks.size
+    t = Tasks.add(host_uuid: h[:uuid], tasktemplate_uuid: tt[:uuid])
+    assert_equal s + 1, Tasks.size
+    Hosts.delete(h[:uuid])
+    assert_equal s, Tasks.size
+  end
 end

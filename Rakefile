@@ -43,6 +43,7 @@ end
 desc 'Start the system for interactive use'
 task :start do
   begin
+    ENV['NOF_VERBOSE'] = '4'
     ruby 'start.rb'
   rescue Interrupt
     puts "\nShutting down..."

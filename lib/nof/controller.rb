@@ -36,6 +36,21 @@ class Controller < System
     res.content_type = 'application/json'
   end
 
+  register '/jobs.json' do |req, res|
+    jobs = []
+    Tasks.all.each do |task|
+      tt = TaskTemplates[task['tasktemplate_uuid']]
+      next if tt.nil?
+      jobs << {
+        'uuid' => task['uuid'],
+        'type' => tt[:type],
+        'opts' => tt[:opts]
+      }
+    end
+    res.body = jobs.to_json
+    res.content_type = 'application/json'
+  end
+
   register '/report' do |req, res|
     res.body = {"status" => "ok"}.to_json
     res.content_type = 'application/json'

@@ -58,13 +58,14 @@ class Dashboard < System
 
   register '/tasktemplate' do |req, res|
     params = req.query
-
     _, task_template = Activities.tasktemplate_add(
       type: params['type'],
-      cmd: params['cmd'],
-      format: {
-        pattern: params['pattern'],
-        template: params['template']
+      opts: {
+        cmd: params['cmd'],
+        format: {
+          pattern: params['pattern'],
+          template: params['template']
+        }
       }
     )
 
@@ -130,5 +131,43 @@ class Dashboard < System
   register '/activities.html' do |req, res|
     res.body = render('activities')
     res.content_type = 'text/html'
+  end
+
+  register '/tasks.json' do |req, res|
+    tasks = Tasks.all
+    res.body = tasks.to_json
+    res.content_type = 'application/json'
+  end
+
+  register '/task' do |req, res|
+    params = req.query
+    host = Hosts[params['host_uuid']]
+    tasktemplate = TaskTemplates[params['tasktemplate_uuid']]
+
+    if !host || !tasktemplate
+      res.status = 500
+      res.body = {error: "Host or tasktemplate not found"}.to_json
+    else
+      _, task = Activities.task_add(host_uuid: params['host_uuid'], tasktemplate_uuid: params['tasktemplate_uuid'])
+      if params['return_url']
+        res.status = 302
+        res['Location'] = params['return_url']
+      else
+        res.status = 200
+        res.body = task.to_json
+        res.content_type = 'application/json'
+      end
+    end
+  end
+ 
+  register '/task/delete' do |req, res|
+    params = req.query
+    Activities.task_delete(uuid: params['uuid'])
+    if params['return_url']
+      res.status = 302
+      res['Location'] = params['return_url']
+    else
+      res.status = 200
+    end
   end
 end
