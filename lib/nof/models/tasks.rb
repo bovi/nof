@@ -21,7 +21,9 @@ class Tasks < Model
       tasks[:tasktemplate_uuid] = tasktemplate_uuid
 
       db.execute("INSERT INTO tasks (uuid, host_uuid, tasktemplate_uuid) VALUES (?, ?, ?)",
-                  tasks[:uuid], tasks[:host_uuid], tasks[:tasktemplate_uuid])
+                  sanitize_uuid(tasks[:uuid]),
+                  sanitize_uuid(tasks[:host_uuid]),
+                  sanitize_uuid(tasks[:tasktemplate_uuid]))
 
       tasks
     end
@@ -31,7 +33,7 @@ class Tasks < Model
     end
 
     def [](uuid)
-      ret = db.execute("SELECT * FROM tasks WHERE uuid = '#{uuid}'")
+      ret = db.execute("SELECT * FROM tasks WHERE uuid = '#{sanitize_uuid(uuid)}'")
       ret = ret.map do |row|
         row = row.transform_keys(&:to_sym)
         row
@@ -40,7 +42,7 @@ class Tasks < Model
     end
 
     def delete(uuid)
-      db.execute("DELETE FROM tasks WHERE uuid = '#{uuid}'")
+      db.execute("DELETE FROM tasks WHERE uuid = '#{sanitize_uuid(uuid)}'")
       {uuid: uuid}
     end
 

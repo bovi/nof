@@ -9,7 +9,7 @@ class TestTaskTemplates < Minitest::Test
 
   def test_add
     s = TaskTemplates.size
-    TaskTemplates.add(uuid: "123", type: "shell",
+    TaskTemplates.add(uuid: "123e4567-e89b-12d3-a456-426614174000", type: "shell",
                       opts: {
                         cmd: "echo 'Hello, world!'",
                         format: {
@@ -19,14 +19,14 @@ class TestTaskTemplates < Minitest::Test
                       })
     assert_equal s + 1, TaskTemplates.size, "Task template should be created"
 
-    t = TaskTemplates["123"]
-    assert_equal "123", t[:uuid]
+    t = TaskTemplates["123e4567-e89b-12d3-a456-426614174000"]
+    assert_equal "123e4567-e89b-12d3-a456-426614174000", t[:uuid]
     assert_equal "shell", t[:type]
     assert_equal "echo 'Hello, world!'", t[:opts][:cmd]
     assert_equal "(\w+): (\d+)", t[:opts][:format][:pattern]
     assert_equal "{name}: {value}", t[:opts][:format][:template]
 
-    TaskTemplates.delete("123")
+    TaskTemplates.delete("123e4567-e89b-12d3-a456-426614174000")
     assert_equal s, TaskTemplates.size, "Task template should be deleted"
   end
 

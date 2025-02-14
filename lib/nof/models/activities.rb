@@ -43,7 +43,7 @@ class Activities < Model
     end
 
     def [](uuid)
-      ret = db.execute("SELECT * FROM activities WHERE uuid = ?", uuid)
+      ret = db.execute("SELECT * FROM activities WHERE uuid = '#{sanitize_uuid(uuid)}'")
       ret = ret.map do |row|
         row = row.transform_keys(&:to_sym)
         row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
@@ -70,7 +70,11 @@ class Activities < Model
       _source_name = source_name || $system_name
 
       db.execute("INSERT INTO activities (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
-                 activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json, _source_name)
+                 sanitize_uuid(activity[:uuid]),
+                 activity[:created_at],
+                 activity[:action],
+                 activity[:opt].to_json,
+                 _source_name)
 
       # here we prepare the activities to be synced for the
       # southbound or northbound system
@@ -84,11 +88,19 @@ class Activities < Model
       # need to sync either.
       if sync_source != :northbound && $northbound_system_name != nil
         db.execute("INSERT INTO activities_northbound (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
-                   activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json, _source_name)
+                   sanitize_uuid(activity[:uuid]),
+                   activity[:created_at],
+                   activity[:action],
+                   activity[:opt].to_json,
+                   _source_name)
       end
       if sync_source != :southbound && $southbound_system_name != nil
         db.execute("INSERT INTO activities_southbound (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
-                   activity[:uuid], activity[:created_at], activity[:action], activity[:opt].to_json, _source_name)
+                   sanitize_uuid(activity[:uuid]),
+                   activity[:created_at],
+                   activity[:action],
+                   activity[:opt].to_json,
+                   _source_name)
       end
 
       activity[:uuid]

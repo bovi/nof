@@ -15,13 +15,16 @@ class Hosts < Model
       raise ArgumentError, "ip is required" unless ip
       hosts[:ip] = ip
 
-      db.execute("INSERT INTO hosts (uuid, hostname, ip) VALUES (?, ?, ?)", hosts[:uuid], hosts[:hostname], hosts[:ip])
+      db.execute("INSERT INTO hosts (uuid, hostname, ip) VALUES (?, ?, ?)",
+                 sanitize_uuid(hosts[:uuid]),
+                 hosts[:hostname],
+                 hosts[:ip])
 
       hosts
     end
 
     def [](uuid)
-      ret = db.execute("SELECT * FROM hosts WHERE uuid = '#{uuid}'")
+      ret = db.execute("SELECT * FROM hosts WHERE uuid = '#{sanitize_uuid(uuid)}'")
       ret = ret.map do |row|
         row = row.transform_keys(&:to_sym)
         row
@@ -34,7 +37,7 @@ class Hosts < Model
       Tasks.all.select { |t| t['host_uuid'] == uuid }.each do |t|
         Tasks.delete(t['uuid'])
       end
-      db.execute("DELETE FROM hosts WHERE uuid = '#{uuid}'")
+      db.execute("DELETE FROM hosts WHERE uuid = '#{sanitize_uuid(uuid)}'")
       {uuid: uuid}
     end
 

@@ -37,6 +37,12 @@ class Model
     def count(table)
       db.execute("SELECT COUNT(*) AS cnt FROM #{table}").first['cnt']
     end
+
+    def sanitize_uuid(uuid)
+      raise ArgumentError, "UUID is required" unless uuid
+      raise ArgumentError, "Invalid UUID format" unless uuid.match?(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      uuid
+    end
   end
 end
 

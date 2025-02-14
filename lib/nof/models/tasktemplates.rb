@@ -34,7 +34,9 @@ class TaskTemplates < Model
       task[:opts][:format] = opts[:format] || {}
 
       db.execute("INSERT INTO tasktemplates (uuid, type, opts) VALUES (?, ?, ?)",
-                 task[:uuid], task[:type], task[:opts].to_json)
+                 sanitize_uuid(task[:uuid]),
+                 task[:type],
+                 task[:opts].to_json)
 
       task
     end
@@ -44,7 +46,7 @@ class TaskTemplates < Model
     end
 
     def [](uuid)
-      ret = db.execute("SELECT * FROM tasktemplates WHERE uuid = '#{uuid}'")
+      ret = db.execute("SELECT * FROM tasktemplates WHERE uuid = '#{sanitize_uuid(uuid)}'")
       ret = ret.map do |row|
         row = row.transform_keys(&:to_sym)
         row[:opts] = JSON.parse(row[:opts]).transform_keys(&:to_sym)
@@ -59,7 +61,7 @@ class TaskTemplates < Model
       Tasks.all.select { |t| t['tasktemplate_uuid'] == uuid }.each do |t|
         Tasks.delete(t['uuid'])
       end
-      db.execute("DELETE FROM tasktemplates WHERE uuid = '#{uuid}'")
+      db.execute("DELETE FROM tasktemplates WHERE uuid = '#{sanitize_uuid(uuid)}'")
       {uuid: uuid}
     end
 
@@ -83,7 +85,6 @@ class TaskTemplates < Model
         row[:opts][:format] = row[:opts][:format].transform_keys(&:to_sym)
         row
       end
-      debug "ret: #{ret.inspect}"
       ret
     end
 
