@@ -22,20 +22,6 @@ class Controller < System
     res.content_type = 'text/plain'
   end
 
-  register '/tasks.json' do |req, res|
-    res.body = [
-      {
-        'uuid' => '550e8400-e29b-41d4-a716-446655440000',
-        'type' => 'shell',
-        'opts' => {
-          'cmd' => 'echo "Hello, World!"',
-          'interval' => 10
-        }
-      }
-    ].to_json
-    res.content_type = 'application/json'
-  end
-
   register '/jobs.json' do |req, res|
     jobs = []
     Tasks.all.each do |task|
@@ -52,6 +38,18 @@ class Controller < System
   end
 
   register '/report' do |req, res|
+    job_uuid = req.query['uuid']
+    job_result = req.query['result'] || '{}'
+    job_result = JSON.parse(job_result) if job_result.is_a?(String)
+    job_timestamp = req.query['timestamp']
+    job_result.each do |key, value|
+      TSData.add(
+        'job_uuid' => job_uuid,
+        'key' => key,
+        'value' => value,
+        'timestamp' => job_timestamp
+      )
+    end
     res.body = {"status" => "ok"}.to_json
     res.content_type = 'application/json'
   end

@@ -27,14 +27,9 @@ class ControllerTest < Minitest::Test
     assert_equal '200', response.code, "Controller index page should be accessible"
   end
 
-  def test_tasks_endpoint
-    response = get('tasks.json')
-    assert_equal '200', response.code, "Controller tasks endpoint should be accessible"
-    # should have a field include UUID, TYPE and OPTIONS
-    tasks = JSON.parse(response.body)
-    assert_equal true, tasks[0].key?('uuid'), "Tasks should have UUID field"
-    assert_equal true, tasks[0].key?('type'), "Tasks should have TYPE field"
-    assert_equal true, tasks[0].key?('opts'), "Tasks should have OPTIONS field"
+  def test_jobs_endpoint
+    response = get('jobs.json')
+    assert_equal '200', response.code, "Controller jobs endpoint should be accessible"
   end
 
   def test_wrong_endpoint
@@ -64,9 +59,25 @@ class ControllerTest < Minitest::Test
   end
 
   def test_report
-    response = post('report', {'uuid' => '123', 'result' => 'ok'})
+    response = get('results.json')
+    assert_equal '200', response.code, "Controller results endpoint should be accessible"
+    results = JSON.parse(response.body)
+    result_size = results.size
+
+    uuid = "929b366d-dd19-4d03-b5cb-dbed9dcdece6"
+    ts = Time.now.to_i
+    response = post('report', {'uuid' => uuid, 'result' => {"greeting" => "Hello"}.to_json, 'timestamp' => ts})
     assert_equal '200', response.code, "Controller report endpoint should be accessible"
     report = JSON.parse(response.body)
     assert_equal 'ok', report['status'], "Report should be ok"
+
+    response = get('results.json')
+    assert_equal '200', response.code, "Controller results endpoint should be accessible"
+    results = JSON.parse(response.body)
+    assert_equal result_size + 1, results.size, "Results should have 1 entry"
+    assert_equal uuid, results.last['job_uuid'], "Results should have correct job_uuid"
+    assert_equal 'greeting', results.last['key'], "Results should have key greeting"
+    assert_equal 'Hello', results.last['value'], "Results should have value Hello"
+    assert_equal ts.to_s, results.last['timestamp'], "Results should have correct timestamp"
   end
 end

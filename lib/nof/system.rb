@@ -72,8 +72,9 @@ class System
 
     begin
       Model.setup_all_tables
+      TSData.setup_db
     rescue => e
-      err "Failed to setup tables: #{e.class}: #{e.message}"
+      err "Failed to setup databases with: #{e.class}: #{e.message}"
       exit 1
     end
 
@@ -215,6 +216,11 @@ class System
 
   register '/tasktemplates.json' do |req, res|
     res.body = TaskTemplates.to_json
+    res.content_type = 'application/json'
+  end
+
+  register '/results.json' do |req, res|
+    res.body = TSData.all.to_json
     res.content_type = 'application/json'
   end
 end

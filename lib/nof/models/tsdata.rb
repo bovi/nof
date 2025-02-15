@@ -1,5 +1,11 @@
 require_relative '../db'
 
+# Time Series Data
+#
+# This Model is special as it doesn't depend on Model
+# but manages its own database. We do this because
+# we want to keep the configuration seperated from the
+# data.
 class TSData
   class << self
     def setup_db
@@ -70,7 +76,14 @@ class TSData
     end
 
     def all
-      db.execute("SELECT * FROM datapoints")
+      db.execute("SELECT
+                    datapoints.id as id,
+                    datapoints.datapoint as value,
+                    datapoints.timestamp as timestamp,
+                    keys.job_uuid as job_uuid,
+                    keys.key as key
+                  FROM datapoints
+                  JOIN keys ON datapoints.key_id = keys.id")
     end
 
     def delete(id)

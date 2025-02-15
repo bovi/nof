@@ -22,17 +22,18 @@ class TaskTemplates < Model
 
       task['type'] = hsh['type']
       if hsh['type'] == 'shell'
-        if hsh['opts']['cmd']
-          task['opts']['cmd'] = hsh['opts']['cmd']
-        else
-          err "cmd is required"
-          raise ArgumentError, "cmd is required"
+        %w[cmd template pattern interval].each do |key|
+          if hsh['opts'][key]
+            task['opts'][key] = hsh['opts'][key]
+          else
+            err "'#{key}' argument is required for shell tasks"
+            raise ArgumentError, "'#{key}' argument is required for shell tasks"
+          end
         end
       else
         err "unknown type: #{hsh['type']}"
         raise ArgumentError, "unknown type: #{hsh['type']}"
       end
-      task['opts']['format'] = hsh['opts']['format'] || {}
 
       db.execute("INSERT INTO tasktemplates (uuid, type, opts) VALUES (?, ?, ?)",
                  sanitize_uuid(task['uuid']),

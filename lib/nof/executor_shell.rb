@@ -1,14 +1,14 @@
 # a Shell task executes a shell command at a given interval,
 # formats the output and reports the result
 class Executor
-  def run_shell_task(task)
-    interval = task['opts']['interval'].to_i
-    command = task['opts']['cmd']
-    pattern = task['opts']['pattern']
-    template = task['opts']['template']
+  def run_shell_job(job)
+    interval = job['opts']['interval'].to_i
+    command = job['opts']['cmd']
+    pattern = job['opts']['pattern']
+    template = job['opts']['template']
 
     url = URI("http://#{Controller.host}:#{Controller.port}/report")
-    request = Net::HTTP::Post.new(url, 'Content-Type' => 'application/json')
+    request = Net::HTTP::Post.new(url)
 
     # Create formatter lambda if pattern and template are provided
     formatter = if pattern && template
@@ -17,7 +17,7 @@ class Executor
         if matches = result.match(/#{pattern}/)
           formatted = template.dup
           matches.named_captures.each do |name, value|
-            formatted = formatted.gsub("{#{name}}", value)
+            formatted = formatted.gsub("\#{#{name}}", value)
           end
           formatted
         else
@@ -32,19 +32,17 @@ class Executor
       begin
         result = `#{command}`
         result = formatter.call(result)
-
-        request.body = {
-          'uuid' => task['uuid'],
-          'result' => result.strip,
+        request.set_form_data({
+          'uuid' => job['uuid'],
+          'result' => result,
           'timestamp' => Time.now.to_i
-        }.to_json
-
+        })
         Net::HTTP.start(url.hostname, url.port) do |http|
           response = http.request(request)
           warn "Error reporting result: #{response.code}" unless response.code == '200'
         end
       rescue StandardError => e
-        err "Shell task execution failed: #{e.class}: #{e.message}"
+        err "Shell job execution failed: #{e.class}: #{e.message}"
       end
 
       sleep interval

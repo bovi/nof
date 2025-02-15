@@ -62,10 +62,9 @@ class Dashboard < System
       'type' => params['type'],
       'opts' => {
         'cmd' => params['cmd'],
-        'format' => {
-          'pattern' => params['pattern'],
-          'template' => params['template']
-        }
+        'interval' => params['interval'],
+        'pattern' => params['pattern'],
+        'template' => params['template']
       }
     )
 

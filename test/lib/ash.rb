@@ -74,6 +74,7 @@ module Ash
     # create a task template
     # by posting to /tasktemplates
     response = post('tasktemplate', { "type" => "shell",
+                                      "interval" => 1,
                                       "cmd" => "echo 'Hello, world!'",
                                       "pattern" => "(\w+): (\d+)",
                                       "template" => "{name}: {value}" })
@@ -81,8 +82,8 @@ module Ash
     task_template = JSON.parse(response.body)
     assert_equal "shell", task_template['type']
     assert_equal "echo 'Hello, world!'", task_template['opts']['cmd']
-    assert_equal "(\w+): (\d+)", task_template['opts']['format']['pattern']
-    assert_equal "{name}: {value}", task_template['opts']['format']['template']
+    assert_equal "(\w+): (\d+)", task_template['opts']['pattern']
+    assert_equal "{name}: {value}", task_template['opts']['template']
       
     # check if the task template was created
     response = get('tasktemplates.json')
@@ -115,6 +116,7 @@ module Ash
     # check the redirect features
     response = post('tasktemplate', { "type" => "shell",
                                       "cmd" => "echo 'Hello, world!'",
+                                      "interval" => 1,
                                       "pattern" => "(\w+): (\d+)",
                                       "template" => "{name}: {value}",
                                       "return_url" => "/tasktemplates.html" })
@@ -207,6 +209,7 @@ module Ash
     # create a tasktemplate
     response = post('tasktemplate', { "type" => "shell",
                                       "cmd" => "echo 'Hello, world!'",
+                                      "interval" => 1,
                                       "pattern" => "(\w+): (\d+)",
                                       "template" => "{name}: {value}" })
     assert_equal '200', response.code, "#{_sys_class} task template should be created"

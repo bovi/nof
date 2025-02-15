@@ -16,7 +16,7 @@ class Executor
   def initialize
     $system_name = 'EXEC'
     @running = true
-    @task_threads = {}  # uuid => Thread
+    @job_threads = {}  # uuid => Thread
   end
 
   def start
@@ -36,21 +36,21 @@ class Executor
 
   def run_polling_loop
     while running?
-      poll_and_process_tasks
+      poll_and_process_jobs
       sleep self.class.interval
     end
   end
 
-  def poll_and_process_tasks
+  # acquire job list from the controller
+  def poll_and_process_jobs
     begin
-      url = "http://#{Controller.host}:#{Controller.port}/tasks.json"
+      url = "http://#{Controller.host}:#{Controller.port}/jobs.json"
       response = Net::HTTP.get_response(URI(url))
-      
       if response.code == '200'
-        tasks = JSON.parse(response.body)
-        process_tasks(tasks)
+        jobs = JSON.parse(response.body)
+        process_jobs(jobs)
       else
-        warn "Error getting tasks: #{response.code}"
+        warn "Error getting jobs: #{response.code}"
       end
     rescue Errno::ECONNREFUSED
       info "Controller not running for polling"
@@ -61,40 +61,41 @@ class Executor
     err "Error polling controller: #{e.class}: #{e.message}"
   end
 
-  def process_tasks(tasks)
-    current_uuids = tasks.map { |t| t['uuid'] }
+  # start and stop jobs based on the jobs list passed
+  def process_jobs(jobs)
+    current_uuids = jobs.map { |j| j['uuid'] }
     
     # Stop and remove tasks that are no longer in the list
-    @task_threads.each do |uuid, thread|
+    @job_threads.each do |uuid, thread|
       unless current_uuids.include?(uuid)
-        info "Stopping task: #{uuid}"
+        info "Stopping job: #{uuid}"
         thread.kill
-        @task_threads.delete(uuid)
+        @job_threads.delete(uuid)
       end
     end
 
     # Start new tasks
-    tasks.each do |task|
-      uuid = task['uuid']
-      next if @task_threads[uuid]&.alive?
+    jobs.each do |job|
+      uuid = job['uuid']
+      next if @job_threads[uuid]&.alive?
 
-      runner = task_runner_for(task['type'])
+      runner = job_runner_for(job['type'])
       unless runner
-        warn "Unsupported task type: #{task['type']}"
+        warn "Unsupported job type: #{job['type']}"
         next
       end
 
-      info "Starting task: #{uuid}"
-      @task_threads[uuid] = Thread.new do
-        runner.call(task)
+      info "Starting job: #{uuid}"
+      @job_threads[uuid] = Thread.new do
+        runner.call(job)
       end
     end
   end
 
-  def task_runner_for(type)
+  def job_runner_for(type)
     case type
     when 'shell'
-      method(:run_shell_task)
+      method(:run_shell_job)
     else
       nil
     end

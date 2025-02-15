@@ -12,7 +12,7 @@ class ExecutionTest < Minitest::Test
     # Add a handler to track if executor makes request
     @request_made = false
     @report_made = false
-    @mock_server.mount_proc '/tasks.json' do |req, res|
+    @mock_server.mount_proc '/jobs.json' do |req, res|
       @request_made = true
       data = { 'uuid' => '550e8400-e29b-41d4-a716-446655440000',
                'type' => 'shell',
@@ -20,7 +20,7 @@ class ExecutionTest < Minitest::Test
                 'interval' => 1,
                 'cmd' => 'echo "Hello, World!"',
                 'pattern' => '(?<greeting>Hello)',
-                'template' => '{greeting}',
+                'template' => '{ "greeting": "#{greeting}" }',
                }
              }
       res.body = [data].to_json
@@ -28,7 +28,7 @@ class ExecutionTest < Minitest::Test
     end
     @mock_server.mount_proc '/report' do |req, res|
       @report_made = true
-      @report_data = JSON.parse(req.body)
+      @report_data = req.query
       res.body = {'status' => 'ok'}.to_json
       res.content_type = 'application/json'
     end
@@ -55,6 +55,6 @@ class ExecutionTest < Minitest::Test
     assert @request_made, "Executor should poll controller for tasks"
     wait_for_sync(Executor)
     assert @report_made, "Executor should report task result"
-    assert_equal 'Hello', @report_data['result']
+    assert_equal 'Hello', JSON.parse(@report_data['result'])['greeting']
   end
 end
