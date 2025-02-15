@@ -34,12 +34,12 @@
   <tbody>
     <% TaskTemplates.each do |task| %>
       <tr>
-        <td><%= task[:uuid] %></td>
-        <td><%= task[:type] %></td>
-        <td><%= task[:opts].to_json %></td>
+        <td><%= task['uuid'] %></td>
+        <td><%= task['type'] %></td>
+        <td><%= task['opts'].to_json %></td>
         <td>
           <form action="/tasktemplate/delete" method="POST" style="margin: 0;">
-            <input type="hidden" name="uuid" value="<%= task[:uuid] %>">
+            <input type="hidden" name="uuid" value="<%= task['uuid'] %>">
             <input type="hidden" name="return_url" value="/tasktemplates.html">
             <button type="submit" class="delete-button">Delete</button>
           </form>

@@ -13,13 +13,13 @@
   <tbody>
     <% Activities.each do |activity| %>
       <tr>
-        <td><%= activity[:uuid] %></td>
-        <td><%= activity[:action] %></td>
-        <td><%= activity[:source_name] %></td>
-        <td><%= Time.at(activity[:created_at] / 1000.0).strftime('%Y-%m-%d %H:%M:%S') %></td>
+        <td><%= activity['uuid'] %></td>
+        <td><%= activity['action'] %></td>
+        <td><%= activity['source_name'] %></td>
+        <td><%= Time.at(activity['created_at'] / 1000.0).strftime('%Y-%m-%d %H:%M:%S') %></td>
         <td>
-          <% if activity[:opt] && !activity[:opt].empty? %>
-            <% activity[:opt].each do |key, value| %>
+          <% if activity['opts'] && !activity['opts'].empty? %>
+            <% activity['opts'].each do |key, value| %>
               <div><strong><%= key %>:</strong> <%= value.is_a?(Hash) ? value.to_json : value %></div>
             <% end %>
           <% end %>

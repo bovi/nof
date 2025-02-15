@@ -26,23 +26,23 @@
   <tbody>
     <% Hosts.each do |host| %>
       <tr>
-        <td><%= host[:hostname] %></td>
-        <td><%= host[:ip] %></td>
+        <td><%= host['hostname'] %></td>
+        <td><%= host['ip'] %></td>
         <td>
           <div style="display: flex; flex-direction: column; gap: 10px;">
-            <% current_tasks = Tasks.all.select { |task| task['host_uuid'] == host[:uuid] } %>
+            <% current_tasks = Tasks.all.select { |task| task['host_uuid'] == host['uuid'] } %>
             <% current_template_uuids = current_tasks.map { |task| task['tasktemplate_uuid'] } %>
-            <% available_templates = TaskTemplates.all.reject { |template| current_template_uuids.include?(template[:uuid]) } %>
+            <% available_templates = TaskTemplates.all.reject { |template| current_template_uuids.include?(template['uuid']) } %>
             
             <% if available_templates.any? %>
               <form action="/task" method="POST" style="display: flex; gap: 10px; margin: 0;">
                 <select name="tasktemplate_uuid" required>
                   <option value="">Add Task...</option>
                   <% available_templates.each do |template| %>
-                    <option value="<%= template[:uuid] %>"><%= template[:type] %>: <%= template[:cmd] %></option>
+                    <option value="<%= template['uuid'] %>"><%= template['type'] %>: <%= template['opts']['cmd'] %></option>
                   <% end %>
                 </select>
-                <input type="hidden" name="host_uuid" value="<%= host[:uuid] %>">
+                <input type="hidden" name="host_uuid" value="<%= host['uuid'] %>">
                 <input type="hidden" name="return_url" value="/hosts.html">
                 <button type="submit">Add</button>
               </form>
@@ -52,7 +52,7 @@
               <% current_tasks.each do |task| %>
                 <div style="display: flex; align-items: center; gap: 10px;">
                   <% template = TaskTemplates[task['tasktemplate_uuid']] %>
-                  <span><%= template[:type] %>: <%= template[:cmd] %></span>
+                  <span><%= template['type'] %>: <%= template['opts']['cmd'] %></span>
                   <form action="/task/delete" method="POST" style="margin: 0;">
                     <input type="hidden" name="uuid" value="<%= task['uuid'] %>">
                     <input type="hidden" name="return_url" value="/hosts.html">
@@ -65,7 +65,7 @@
         </td>
         <td>
           <form action="/host/delete" method="POST" style="margin: 0;">
-            <input type="hidden" name="uuid" value="<%= host[:uuid] %>">
+            <input type="hidden" name="uuid" value="<%= host['uuid'] %>">
             <input type="hidden" name="return_url" value="/hosts.html">
             <button type="submit" class="delete-button">Delete</button>
           </form>

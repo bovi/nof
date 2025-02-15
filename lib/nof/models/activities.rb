@@ -8,12 +8,13 @@ require 'securerandom'
 # on the Controller and the RemoteDashboard
 class Activities < Model
   class << self
+    # the opts field is a json field
     def setup_tables
       create_table('activities', [
         'uuid',
         'created_at',
         'action',
-        'opt',
+        'opts',
         'source_name'
       ])
 
@@ -21,7 +22,7 @@ class Activities < Model
         'uuid',
         'created_at',
         'action',
-        'opt',
+        'opts',
         'source_name'
       ])
 
@@ -29,7 +30,7 @@ class Activities < Model
         'uuid',
         'created_at',
         'action',
-        'opt',
+        'opts',
         'source_name'
       ])
     end
@@ -42,14 +43,15 @@ class Activities < Model
       @own_actions ||= {}
     end
 
+    # handle the json opts field
+    def transform_row(row)
+      row['opts'] = JSON.parse(row['opts']) if row && row['opts']
+      row
+    end
+
     def [](uuid)
-      ret = db.execute("SELECT * FROM activities WHERE uuid = '#{sanitize_uuid(uuid)}'")
-      ret = ret.map do |row|
-        row = row.transform_keys(&:to_sym)
-        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
-        row
-      end
-      ret.first
+      ret = db.execute("SELECT * FROM activities WHERE uuid = '#{sanitize_uuid(uuid)}' LIMIT 1")
+      transform_row(ret.first)
     end
 
     # add an activity to the activities
@@ -60,20 +62,20 @@ class Activities < Model
     # opt: the options of the activity
     # source: :northbound or :southbound (the sync source - only if we sync)
     # source_name: the name of the source (optional if we sync)
-    def add(uuid: nil, created_at: nil, action: nil, opt: {}, sync_source: nil, source_name: nil)
+    def add(hsh)
       activity = {}
-      activity[:uuid] = uuid || SecureRandom.uuid
-      activity[:created_at] = created_at || (Time.now.to_f * 1000).to_i
-      raise ArgumentError, "action is required" unless action
-      activity[:action] = action
-      activity[:opt] = opt
-      _source_name = source_name || $system_name
+      activity['uuid'] = hsh['uuid'] || SecureRandom.uuid
+      activity['created_at'] = hsh['created_at'] || (Time.now.to_f * 1000).to_i
+      raise ArgumentError, "action is required" unless hsh['action']
+      activity['action'] = hsh['action']
+      activity['opts'] = hsh['opts']
+      _source_name = hsh['source_name'] || $system_name
 
-      db.execute("INSERT INTO activities (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
-                 sanitize_uuid(activity[:uuid]),
-                 activity[:created_at],
-                 activity[:action],
-                 activity[:opt].to_json,
+      db.execute("INSERT INTO activities (uuid, created_at, action, opts, source_name) VALUES (?, ?, ?, ?, ?)",
+                 sanitize_uuid(activity['uuid']),
+                 activity['created_at'],
+                 activity['action'],
+                 activity['opts'].to_json,
                  _source_name)
 
       # here we prepare the activities to be synced for the
@@ -86,24 +88,24 @@ class Activities < Model
       # where it came from.
       # If there is no northbound or southbound system, we don't
       # need to sync either.
-      if sync_source != :northbound && $northbound_system_name != nil
-        db.execute("INSERT INTO activities_northbound (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
-                   sanitize_uuid(activity[:uuid]),
-                   activity[:created_at],
-                   activity[:action],
-                   activity[:opt].to_json,
+      if hsh['sync_source'] != :northbound && $northbound_system_name != nil
+        db.execute("INSERT INTO activities_northbound (uuid, created_at, action, opts, source_name) VALUES (?, ?, ?, ?, ?)",
+                   sanitize_uuid(activity['uuid']),
+                   activity['created_at'],
+                   activity['action'],
+                   activity['opts'].to_json,
                    _source_name)
       end
-      if sync_source != :southbound && $southbound_system_name != nil
-        db.execute("INSERT INTO activities_southbound (uuid, created_at, action, opt, source_name) VALUES (?, ?, ?, ?, ?)",
-                   sanitize_uuid(activity[:uuid]),
-                   activity[:created_at],
-                   activity[:action],
-                   activity[:opt].to_json,
+      if hsh['sync_source'] != :southbound && $southbound_system_name != nil
+        db.execute("INSERT INTO activities_southbound (uuid, created_at, action, opts, source_name) VALUES (?, ?, ?, ?, ?)",
+                   sanitize_uuid(activity['uuid']),
+                   activity['created_at'],
+                   activity['action'],
+                   activity['opts'].to_json,
                    _source_name)
       end
 
-      activity[:uuid]
+      activity['uuid']
     end
 
     # sync activities from another system
@@ -118,23 +120,14 @@ class Activities < Model
           err "activity already exists: #{activity['uuid']}"
           raise ArgumentError, "activity already exists: #{activity['uuid']}"
         end
-        opt = activity['opt'].transform_keys(&:to_sym) if activity['opt'].is_a?(Hash)
-        if opt
-          opt = opt.transform_keys(&:to_sym)
-          opt.each do |k, v|
-            if v.is_a?(Hash)
-              opt[k] = v.transform_keys(&:to_sym)
-            end
-          end
-        end
-        ret = own_actions[activity['action']].call(opt)
-        ret = add(
-          uuid: activity['uuid'],
-          created_at: activity['created_at'],
-          action: activity['action'],
-          opt: opt,
-          sync_source: sync_source,
-          source_name: activity['source_name']
+        own_actions[activity['action']].call(activity['opts'])
+        add(
+          'uuid' => activity['uuid'],
+          'created_at' => activity['created_at'],
+          'action' => activity['action'],
+          'opts' => activity['opts'],
+          'sync_source' => sync_source,
+          'source_name' => activity['source_name']
         )
       end
       activities.size
@@ -146,49 +139,39 @@ class Activities < Model
 
     def each(&block)
       db.execute("SELECT * FROM activities ORDER BY created_at DESC").each do |row|
-        row = row.transform_keys(&:to_sym)
-        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
-        block.call(row)
+        block.call(transform_row(row))
       end
     end
 
     def to_json
       db.execute("SELECT * FROM activities").map do |row|
-        row = row.transform_keys(&:to_sym)
-        row[:opt] = JSON.parse(row[:opt]).transform_keys(&:to_sym)
-        row
+        transform_row(row)
       end.to_json
     end
 
     def northbound_json! &block
       json = db.execute("SELECT * FROM activities_northbound").map do |row|
-        row = row.transform_keys(&:to_sym)
-        opt = JSON.parse(row[:opt])
-        unless opt.empty?
-          row[:opt] = opt.transform_keys(&:to_sym)
-        end
-        row
+        transform_row(row)
       end.to_json
       yield json
       db.execute("DELETE FROM activities_northbound")
     end
 
     def northbound_activities
-      db.execute("SELECT * FROM activities_northbound")
+      db.execute("SELECT * FROM activities_northbound").map do |row|
+        transform_row(row)
+      end
     end
 
     def southbound_activities
-      db.execute("SELECT * FROM activities_southbound")
+      db.execute("SELECT * FROM activities_southbound").map do |row|
+        transform_row(row)
+      end
     end
 
     def southbound_json! &block
       json = db.execute("SELECT * FROM activities_southbound").map do |row|
-        row = row.transform_keys(&:to_sym)
-        opt = JSON.parse(row[:opt])
-        unless opt.empty?
-          row[:opt] = opt.transform_keys(&:to_sym)
-        end
-        row
+        transform_row(row)
       end.to_json
       yield json
       db.execute("DELETE FROM activities_southbound")
@@ -197,12 +180,7 @@ class Activities < Model
     def southbound_raw!
       raw = db.execute("SELECT * FROM activities_southbound")
       raw = raw.map do |row|
-        row = row.transform_keys(&:to_sym)
-        opt = JSON.parse(row[:opt])
-        unless opt.empty?
-          row[:opt] = opt.transform_keys(&:to_sym)
-        end
-        row
+        transform_row(row)
       end
       db.execute("DELETE FROM activities_southbound")
       raw
@@ -216,9 +194,8 @@ class Activities < Model
     def method_missing(method_name, *args, &block)
       if own_actions.key?(method_name.to_s)
         hsh = args.first || {}
-        hsh = hsh.transform_keys(&:to_sym) if hsh.is_a?(Hash)
         result = own_actions[method_name.to_s].call(hsh, &block)
-        activity_uuid = add(action: method_name.to_s, opt: result)
+        activity_uuid = add('action' => method_name.to_s, 'opts' => result)
         [activity_uuid, result]
       else
         raise NotImplementedError, "Activity '#{method_name}' is not registered"

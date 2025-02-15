@@ -4,31 +4,27 @@ class Hosts < Model
       create_table('hosts', ['uuid', 'hostname', 'host', 'ip'])
     end
 
-    def add(uuid: nil, hostname:, ip:)
+    def add(hsh)
       hosts = {}
 
-      hosts[:uuid] = uuid || SecureRandom.uuid
+      hosts['uuid'] = hsh['uuid'] || SecureRandom.uuid
 
-      raise ArgumentError, "hostname is required" unless hostname
-      hosts[:hostname] = hostname
+      raise ArgumentError, "hostname is required" unless hsh['hostname']
+      hosts['hostname'] = hsh['hostname']
 
-      raise ArgumentError, "ip is required" unless ip
-      hosts[:ip] = ip
+      raise ArgumentError, "ip is required" unless hsh['ip']
+      hosts['ip'] = hsh['ip']
 
       db.execute("INSERT INTO hosts (uuid, hostname, ip) VALUES (?, ?, ?)",
-                 sanitize_uuid(hosts[:uuid]),
-                 hosts[:hostname],
-                 hosts[:ip])
+                 sanitize_uuid(hosts['uuid']),
+                 hosts['hostname'],
+                 hosts['ip'])
 
       hosts
     end
 
     def [](uuid)
       ret = db.execute("SELECT * FROM hosts WHERE uuid = '#{sanitize_uuid(uuid)}'")
-      ret = ret.map do |row|
-        row = row.transform_keys(&:to_sym)
-        row
-      end
       ret.first
     end
 
@@ -38,7 +34,7 @@ class Hosts < Model
         Tasks.delete(t['uuid'])
       end
       db.execute("DELETE FROM hosts WHERE uuid = '#{sanitize_uuid(uuid)}'")
-      {uuid: uuid}
+      {'uuid' => uuid}
     end
 
     def size
@@ -51,7 +47,6 @@ class Hosts < Model
 
     def each(&block)
       db.execute("SELECT * FROM hosts").each do |row|
-        row = row.transform_keys(&:to_sym)
         block.call(row)
       end
     end
@@ -60,12 +55,12 @@ end
 
 Activities.register("host_add") do |hsh|
   Hosts.add(
-    uuid: hsh[:uuid],
-    hostname: hsh[:hostname],
-    ip: hsh[:ip]
+    'uuid' => hsh['uuid'],
+    'hostname' => hsh['hostname'],
+    'ip' => hsh['ip']
   )
 end
 
 Activities.register("host_delete") do |hsh|
-  Hosts.delete(hsh[:uuid])
+  Hosts.delete(hsh['uuid'])
 end

@@ -64,7 +64,7 @@ class ControllerTest < Minitest::Test
   end
 
   def test_report
-    response = post('report', {uuid: '123', result: 'ok'})
+    response = post('report', {'uuid' => '123', 'result' => 'ok'})
     assert_equal '200', response.code, "Controller report endpoint should be accessible"
     report = JSON.parse(response.body)
     assert_equal 'ok', report['status'], "Report should be ok"

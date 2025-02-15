@@ -59,12 +59,12 @@ class Dashboard < System
   register '/tasktemplate' do |req, res|
     params = req.query
     _, task_template = Activities.tasktemplate_add(
-      type: params['type'],
-      opts: {
-        cmd: params['cmd'],
-        format: {
-          pattern: params['pattern'],
-          template: params['template']
+      'type' => params['type'],
+      'opts' => {
+        'cmd' => params['cmd'],
+        'format' => {
+          'pattern' => params['pattern'],
+          'template' => params['template']
         }
       }
     )
@@ -80,7 +80,7 @@ class Dashboard < System
 
   register '/tasktemplate/delete' do |req, res|
     params = req.query
-    Activities.tasktemplate_delete(uuid: params['uuid'])
+    Activities.tasktemplate_delete('uuid' => params['uuid'])
     if params['return_url']
       res.status = 302
       res['Location'] = params['return_url']
@@ -102,7 +102,7 @@ class Dashboard < System
 
   register '/host' do |req, res|
     params = req.query
-    _, host = Activities.host_add(hostname: params['hostname'], ip: params['ip'])
+    _, host = Activities.host_add('hostname' => params['hostname'], 'ip' => params['ip'])
     if params['return_url']
       res.status = 302
       res['Location'] = params['return_url']
@@ -114,7 +114,7 @@ class Dashboard < System
 
   register '/host/delete' do |req, res|
     params = req.query
-    Activities.host_delete(uuid: params['uuid'])
+    Activities.host_delete('uuid' => params['uuid'])
     if params['return_url']
       res.status = 302
       res['Location'] = params['return_url']
@@ -148,7 +148,7 @@ class Dashboard < System
       res.status = 500
       res.body = {error: "Host or tasktemplate not found"}.to_json
     else
-      _, task = Activities.task_add(host_uuid: params['host_uuid'], tasktemplate_uuid: params['tasktemplate_uuid'])
+      _, task = Activities.task_add('host_uuid' => params['host_uuid'], 'tasktemplate_uuid' => params['tasktemplate_uuid'])
       if params['return_url']
         res.status = 302
         res['Location'] = params['return_url']
@@ -162,7 +162,7 @@ class Dashboard < System
  
   register '/task/delete' do |req, res|
     params = req.query
-    Activities.task_delete(uuid: params['uuid'])
+    Activities.task_delete('uuid' => params['uuid'])
     if params['return_url']
       res.status = 302
       res['Location'] = params['return_url']

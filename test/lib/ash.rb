@@ -195,7 +195,8 @@ module Ash
     st = tasks.size
 
     # create a task
-    response = post('task', { "host_uuid" => "123", "tasktemplate_uuid" => "456" })
+    response = post('task', { "host_uuid" => "123e4567-e89b-12d3-a456-426614174000",
+                              "tasktemplate_uuid" => "789e4567-e89b-12d3-a456-426614174000" })
     assert_equal '500', response.code, "#{_sys_class} task creation should fail as host and tasktemplate are not existing"
     
     # create a host

@@ -9,7 +9,7 @@ class TestActivities < Minitest::Test
 
   def test_add
     sa = Activities.size
-    Activities.add(action: "test")
+    Activities.add('action' => "test")
     assert_equal sa + 1, Activities.size
   end
 

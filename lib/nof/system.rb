@@ -202,8 +202,8 @@ class System
   # status: init, synced, oosync
   register '/status.json' do |req, res|
     res.body = JSON.generate({
-      health: 'ok',
-      status: 'init'
+      'health' => 'ok',
+      'status' => 'init'
     })
     res.content_type = 'application/json'
   end

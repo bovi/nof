@@ -43,8 +43,8 @@ class Controller < System
       next if tt.nil?
       jobs << {
         'uuid' => task['uuid'],
-        'type' => tt[:type],
-        'opts' => tt[:opts]
+        'type' => tt['type'],
+        'opts' => tt['opts']
       }
     end
     res.body = jobs.to_json
