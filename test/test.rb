@@ -53,6 +53,11 @@ ENV['NOF_TEST_DB_FILE'] = File.join(temp_dir, 'test.db')
 ENV['NOF_CTRL_DB_FILE'] = File.join(temp_dir, 'test_ctrl.db')
 ENV['NOF_RASH_DB_FILE'] = File.join(temp_dir, 'test_rash.db')
 ENV['NOF_DASH_DB_FILE'] = File.join(temp_dir, 'test_dash.db')
+ENV['NOF_TEST_TS_DB_FILE'] = File.join(temp_dir, 'test_ts.db')
+ENV['NOF_CTRL_TS_DB_FILE'] = File.join(temp_dir, 'test_ctrl_ts.db')
+ENV['NOF_RASH_TS_DB_FILE'] = File.join(temp_dir, 'test_rash_ts.db')
+ENV['NOF_DASH_TS_DB_FILE'] = File.join(temp_dir, 'test_dash_ts.db')
+
 
 # Require all test files in test directory
 Dir[File.join(File.dirname(__FILE__), 'test_*.rb')].each do |file|
@@ -63,3 +68,6 @@ Dir[File.join(File.dirname(__FILE__), 'test_*.rb')].each do |file|
   end
 end
 
+at_exit do
+  FileUtils.remove_entry temp_dir if Dir.exist?(temp_dir)
+end

@@ -28,6 +28,14 @@ class ConnectionPool
     end
   end
 
+  def with_transaction(&block)
+    with_connection do |conn|
+      conn.transaction do 
+        block.call(conn)
+      end
+    end
+  end
+
   # Closes all connections in the pool.
   def shutdown
     until @pool.empty?
@@ -50,6 +58,12 @@ class Database
   def execute(sql, *args)
     @pool.with_connection do |conn|
       conn.execute(sql, args) 
+    end
+  end
+
+  def with_transaction(&block)
+    @pool.with_transaction do |conn|
+      block.call(conn)
     end
   end
 
