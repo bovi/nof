@@ -51,6 +51,31 @@ class Dashboard < System
     res.status = status == 'ok' ? 200 : 500
   end
 
+  register '/results/sync' do |req, res|
+    status = 'ko'
+    begin
+      new_results = JSON.parse(req.body)
+      new_results.each do |result|
+        TSData.add(result)
+      end
+
+      sync_results(new_results) unless $system_name == 'RASH'
+
+      status = 'ok'
+      message = "Results synced successfully: #{new_results.size}"
+    rescue => e
+      err "Sync failed: #{e.class}: #{e.message}"
+      status = 'error'
+      message = e.message
+    end
+    res.body = {
+      'status' => status,
+      'message' => message
+    }.to_json
+    res.content_type = 'application/json'
+    res.status = status == 'ok' ? 200 : 500
+  end
+
   register '/' do |req, res|
     res.body = render('index')
     res.content_type = 'text/html'

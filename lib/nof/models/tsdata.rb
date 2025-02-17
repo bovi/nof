@@ -49,9 +49,10 @@ class TSData
     end
 
     def add(hsh)
+      _id = hsh['id'] || -1
       jid = hsh['job_uuid']
       key = hsh['key']
-      ts = hsh['timestamp']
+      ts = hsh['timestamp'].to_i
       v = hsh['value']
 
       # check if key and job_uuid combination exists
@@ -62,8 +63,24 @@ class TSData
       ret = db.execute("SELECT id FROM keys WHERE job_uuid = '#{jid}' AND key = '#{key}' LIMIT 1")
       key_id = db.execute("SELECT id FROM keys WHERE job_uuid = '#{jid}' AND key = '#{key}' LIMIT 1").first['id']
 
-      # insert value
-      db.execute("INSERT INTO datapoints (key_id, datapoint, timestamp) VALUES (?, ?, ?)", [key_id, v, ts])
+      if _id == -1
+        # insert the datapoint and ensure to get the inserted auto-incremented ID back
+        db.with_transaction do |db_trans|
+          db_trans.execute("INSERT INTO datapoints (key_id, datapoint, timestamp) VALUES (?, ?, ?)", [key_id, v, ts])
+          _id = db_trans.execute("SELECT last_insert_rowid()").first['last_insert_rowid()']
+        end
+      else
+        # this is a sync operation, so we need to use a fixed ID and not auto-increment
+        db.execute("INSERT INTO datapoints (id, key_id, datapoint, timestamp) VALUES (?, ?, ?, ?)", [_id, key_id, v, ts])
+      end
+
+      {
+        'id' => _id,
+        'job_uuid' => jid,
+        'key' => key,
+        'value' => v,
+        'timestamp' => ts
+      }
     end
 
     # add a bulk of datapoints with a commit

@@ -56,6 +56,28 @@ class System
         )
       end
     end
+
+    def sync_results(result)
+      northbound_class = Object.const_get(self::NORTHBOUND_SYSTEM)
+      northbound_host = northbound_class.host
+      northbound_port = northbound_class.port
+  
+      # send the result to the Dashboard
+      uri = URI("http://#{northbound_host}:#{northbound_port}/results/sync")
+      http = Net::HTTP.new(uri.host, uri.port)
+      request = Net::HTTP::Post.new(uri.path)
+      request.body = result.to_json
+      begin
+        response = http.request(request)
+        if !response.is_a?(Net::HTTPSuccess)
+          err "Failed to sync results with Dashboard: #{response.code} #{response.body}"
+        end
+      rescue Errno::ECONNREFUSED
+        info "#{northbound_class.name} not running for results sync"
+      rescue => e
+        err "results sync failed: #{e.class}: #{e.message}"
+      end
+    end
   end
 
   def setup
@@ -142,7 +164,7 @@ class System
               sync_with_northbound_system
               sleep self.class::SYNC_INTERVAL
             rescue => e
-              err "Sync failed: #{e.message}"
+              err "activities sync handler failed: #{e.class}: #{e.message}"
               sleep self.class::SYNC_INTERVAL  # Still wait before retrying
             end
           end
@@ -168,13 +190,13 @@ class System
         sync_num =  Activities.sync(new_activities, sync_source: :northbound)
         info "Synced #{sync_num} activities successfully" unless sync_num.zero?
       else
-        err "Sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"
-        raise "Sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"
+        err "activities sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"
+        raise "activities sync failed: HTTP Return Code not successful: #{response.code}: #{response.body}"
       end
     rescue Errno::ECONNREFUSED
-      info "#{northbound_class.name} not running for sync"
+      info "#{northbound_class.name} not running for activities sync"
     rescue => e
-      err "Sync failed: #{e.class}: #{e.message}"
+      err "activities sync failed: #{e.class}: #{e.message}"
     end
   end
   
@@ -224,8 +246,3 @@ class System
     res.content_type = 'application/json'
   end
 end
-
-
-
-
-

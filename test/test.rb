@@ -15,6 +15,13 @@ def _post(klass, path = '', body = {})
   Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
 end
 
+def _post_json(klass, path = '', body = {})
+  uri = URI("http://#{klass.host}:#{klass.port}/#{path}".chomp('/'))
+  req = Net::HTTP::Post.new(uri)
+  req.body = body.to_json
+  Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+end
+
 def init_model_db
   Model.setup_all_tables
 end
@@ -43,6 +50,9 @@ def delete_all_db_files
   %w(TEST CTRL DASH RASH).each do |system_name|
     db_file = ENV["NOF_#{system_name.upcase}_DB_FILE"] || ''
     File.delete(db_file) if File.exist?(db_file)
+
+    ts_db_file = ENV["NOF_#{system_name.upcase}_TS_DB_FILE"] || ''
+    File.delete(ts_db_file) if File.exist?(ts_db_file)
   end
 end
 

@@ -78,6 +78,6 @@ class ControllerTest < Minitest::Test
     assert_equal uuid, results.last['job_uuid'], "Results should have correct job_uuid"
     assert_equal 'greeting', results.last['key'], "Results should have key greeting"
     assert_equal 'Hello', results.last['value'], "Results should have value Hello"
-    assert_equal ts.to_s, results.last['timestamp'], "Results should have correct timestamp"
+    assert_equal ts, results.last['timestamp'], "Results should have correct timestamp"
   end
 end

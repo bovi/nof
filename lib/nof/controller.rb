@@ -42,14 +42,18 @@ class Controller < System
     job_result = req.query['result'] || '{}'
     job_result = JSON.parse(job_result) if job_result.is_a?(String)
     job_timestamp = req.query['timestamp']
+    _result = []
     job_result.each do |key, value|
-      TSData.add(
+      _result << TSData.add(
         'job_uuid' => job_uuid,
         'key' => key,
         'value' => value,
         'timestamp' => job_timestamp
       )
     end
+
+    sync_results(_result)
+
     res.body = {"status" => "ok"}.to_json
     res.content_type = 'application/json'
   end
