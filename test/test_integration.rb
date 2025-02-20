@@ -380,4 +380,69 @@ class IntegrationTest < Minitest::Test
     assert_equal PATTERN, job['opts']['pattern']
     assert_equal TEMPLATE, job['opts']['template']
   end
+
+  def test_oneshot_task
+    response = _get(RemoteDashboard, '/results.json')
+    s = JSON.parse(response.body).size
+
+    # add host to remote dashboard
+    new_host_response = _post(RemoteDashboard,
+                              '/host',
+                              {
+                                'hostname' => 'localhost',
+                                'ip' => '127.0.0.1'
+                              })
+    host = JSON.parse(new_host_response.body)
+    host_uuid = host['uuid']
+
+    # add tasktemplate to remote dashboard
+    new_tasktemplate_response = _post(RemoteDashboard,
+                                      '/tasktemplate',
+                                      {
+                                        'type' => 'oneshot',
+                                        'cmd' => CMD,
+                                        'template' => TEMPLATE,
+                                        'pattern' => PATTERN
+                                      })
+    task_template = JSON.parse(new_tasktemplate_response.body)
+    tasktemplate_uuid = task_template['uuid']
+
+    # add task to remote dashboard
+    new_task_response = _post(RemoteDashboard,
+                              '/task',
+                              {
+                                'host_uuid' => host_uuid,
+                                'tasktemplate_uuid' => tasktemplate_uuid
+                              })
+    assert_equal '200', new_task_response.code, "Task should be created"
+    task = JSON.parse(new_task_response.body)
+    task_uuid = task['uuid']
+
+    # wait for the complete sync cycle
+    wait_for_sync(Dashboard)
+    wait_for_sync(Controller)
+    wait_for_sync(Executor)
+    wait_for_sync(Controller)
+    wait_for_sync(Dashboard)
+
+    # check results from remote dashboard
+    response = _get(RemoteDashboard, '/results.json')
+    assert_equal '200', response.code, "Results should be accessible"
+    results = JSON.parse(response.body)
+    assert_equal s + 1, results.size, "Result should be executed once"
+    debug "Results: #{results.inspect}"
+    debug "Task UUID: #{task_uuid}"
+    result = results.find { |r| r['job_uuid'] == task_uuid }
+    refute_nil result, "Result should be synced to the Remote Dashboard"
+    assert_equal 'Hello', result['value']
+    assert_equal 'greeting', result['key']
+
+    sleep 5
+
+    # check results from Remote Dashboard
+    response = _get(RemoteDashboard, '/results.json')
+    assert_equal '200', response.code, "Results should be accessible"
+    results = JSON.parse(response.body)
+    assert_equal s + 1, results.size, "Task should be executed just once"
+  end
 end

@@ -5,7 +5,8 @@ class Tasks < Model
       [
         'uuid',
         'host_uuid',
-        'tasktemplate_uuid'
+        'tasktemplate_uuid',
+        'opts'
       ])
     end
 
@@ -20,12 +21,20 @@ class Tasks < Model
       raise ArgumentError, "TaskTemplate UUID is required" unless hsh['tasktemplate_uuid']
       tasks['tasktemplate_uuid'] = hsh['tasktemplate_uuid']
 
-      db.execute("INSERT INTO tasks (uuid, host_uuid, tasktemplate_uuid) VALUES (?, ?, ?)",
+      opts = hsh['opts'] || {}
+
+      db.execute("INSERT INTO tasks (uuid, host_uuid, tasktemplate_uuid, opts) VALUES (?, ?, ?, ?)",
                   sanitize_uuid(tasks['uuid']),
                   sanitize_uuid(tasks['host_uuid']),
-                  sanitize_uuid(tasks['tasktemplate_uuid']))
+                  sanitize_uuid(tasks['tasktemplate_uuid']),
+                  opts.to_json)
 
       tasks
+    end
+
+    def edit(uuid, hsh)
+      opts = hsh['opts'] || {}
+      db.execute("UPDATE tasks SET opts = ? WHERE uuid = '#{sanitize_uuid(uuid)}'", opts.to_json)
     end
 
     def size
@@ -34,7 +43,7 @@ class Tasks < Model
 
     def [](uuid)
       ret = db.execute("SELECT * FROM tasks WHERE uuid = '#{sanitize_uuid(uuid)}'")
-      ret.first
+      transform_row(ret.first)
     end
 
     def delete(uuid)
@@ -52,7 +61,8 @@ Activities.register("task_add") do |hsh|
   Tasks.add(
     'uuid' => hsh['uuid'],
     'host_uuid' => hsh['host_uuid'],
-    'tasktemplate_uuid' => hsh['tasktemplate_uuid']
+    'tasktemplate_uuid' => hsh['tasktemplate_uuid'],
+    'opts' => hsh['opts']
   )
 end
 

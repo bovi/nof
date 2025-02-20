@@ -3,7 +3,7 @@ require 'json'
 require_relative 'controller'
 require_relative 'logging'
 require_relative 'executor_shell'
-
+require_relative 'executor_oneshot'
 # The Executor is the component that
 # executes tasks, collects the results
 # and reports them to the Controller.
@@ -79,25 +79,19 @@ class Executor
       uuid = job['uuid']
       next if @job_threads[uuid]&.alive?
 
-      runner = job_runner_for(job['type'])
-      unless runner
+      case job['type']
+      when 'oneshot'
+        info "Oneshot job: #{uuid}"
+        run_oneshot_job(job)
+      when 'shell'
+        info "Starting job: #{uuid}"
+        @job_threads[uuid] = Thread.new do
+          run_shell_job(job)
+        end
+      else
         warn "Unsupported job type: #{job['type']}"
         next
       end
-
-      info "Starting job: #{uuid}"
-      @job_threads[uuid] = Thread.new do
-        runner.call(job)
-      end
-    end
-  end
-
-  def job_runner_for(type)
-    case type
-    when 'shell'
-      method(:run_shell_job)
-    else
-      nil
     end
   end
 

@@ -57,6 +57,7 @@ class Dashboard < System
       new_results = JSON.parse(req.body)
       new_results.each do |result|
         TSData.add(result)
+        debug "Result Synced: #{result.inspect}"
       end
 
       sync_results(new_results) unless $system_name == 'RASH'
@@ -172,7 +173,9 @@ class Dashboard < System
       res.status = 500
       res.body = {error: "Host or tasktemplate not found"}.to_json
     else
-      _, task = Activities.task_add('host_uuid' => params['host_uuid'], 'tasktemplate_uuid' => params['tasktemplate_uuid'])
+      _, task = Activities.task_add('host_uuid' => params['host_uuid'],
+                                  'tasktemplate_uuid' => params['tasktemplate_uuid'],
+                                  'opts' => { 'executed' => false })
       if params['return_url']
         res.status = 302
         res['Location'] = params['return_url']

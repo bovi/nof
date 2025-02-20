@@ -43,6 +43,11 @@ class Model
       raise ArgumentError, "Invalid UUID format" unless uuid.match?(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
       uuid
     end
+
+    def transform_row(row)
+      row['opts'] = JSON.parse(row['opts']) if row && row['opts']
+      row
+    end
   end
 end
 

@@ -27,11 +27,13 @@ class Controller < System
     Tasks.all.each do |task|
       tt = TaskTemplates[task['tasktemplate_uuid']]
       next if tt.nil?
+      next if task['opts']['executed']
       jobs << {
         'uuid' => task['uuid'],
         'type' => tt['type'],
         'opts' => tt['opts']
       }
+      Tasks.edit(task['uuid'], { 'opts' => { 'executed' => true } }) if tt['type'] == 'oneshot'
     end
     res.body = jobs.to_json
     res.content_type = 'application/json'
@@ -50,6 +52,7 @@ class Controller < System
         'value' => value,
         'timestamp' => job_timestamp
       )
+      debug "Result: #{_result.inspect}"
     end
 
     sync_results(_result)

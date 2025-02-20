@@ -30,6 +30,15 @@ class TaskTemplates < Model
             raise ArgumentError, "'#{key}' argument is required for shell tasks"
           end
         end
+      elsif hsh['type'] == 'oneshot'
+        %w[cmd template pattern].each do |key|
+          if hsh['opts'][key]
+            task['opts'][key] = hsh['opts'][key]
+          else
+            err "'#{key}' argument is required for oneshot tasks"
+            raise ArgumentError, "'#{key}' argument is required for oneshot tasks"
+          end
+        end
       else
         err "unknown type: #{hsh['type']}"
         raise ArgumentError, "unknown type: #{hsh['type']}"
@@ -81,11 +90,6 @@ class TaskTemplates < Model
       db.execute("SELECT * FROM tasktemplates").each do |row|
         block.call(transform_row(row))
       end
-    end
-
-    def transform_row(row)
-      row['opts'] = JSON.parse(row['opts']) if row && row['opts']
-      row
     end
   end
 end

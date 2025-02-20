@@ -47,4 +47,23 @@ class TestTask < Minitest::Test
     assert_equal "task_delete", a['action']
     assert_equal task['uuid'], a['opts']['uuid']
   end
+
+  def test_oneshot_task
+    s = Tasks.size
+    h = Hosts.add('hostname' => "localhost", 'ip' => "127.0.0.1")
+    tt = TaskTemplates.add('type' => "oneshot",
+                            'opts' => { 'cmd' => "echo 'Hello, world!'",
+                                        'pattern' => "(\w+): (\d+)",
+                                        'template' => "{name}: {value}"})
+    t = Tasks.add('host_uuid' => h['uuid'], 'tasktemplate_uuid' => tt['uuid'])
+    assert_equal s + 1, Tasks.size
+
+    Tasks.edit(t['uuid'], { 'opts' => { 'executed' => true } })
+    t = Tasks[t['uuid']]
+    assert_equal true, t['opts']['executed']
+
+    TaskTemplates.delete(tt['uuid'])
+    Hosts.delete(h['uuid'])
+    assert_equal s, Tasks.size
+  end
 end
